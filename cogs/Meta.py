@@ -190,7 +190,7 @@ class Meta(commands.Cog):
         """
         View the tasks in your todo list.
         """
-        entries = await ctx.bot.cache.get_todo(ctx.author.id)
+        entries = await ctx.bot.cache.get_todo(ctx.author.id) or []
         li = [(number, item) for number, item in enumerate(entries, start=1)]
         await menus.MenuPages(ctx.bot.utils.TodoSource(li), delete_message_after=True).start(ctx)
 
@@ -205,11 +205,13 @@ class Meta(commands.Cog):
             return await ctx.send(f"{ctx.bot.emoji_dict['red_tick']} Task is too long.")
 
         tasks = await ctx.bot.cache.get_todo(ctx.author.id)
-
-        if len(tasks) >= 100:
-            return await ctx.send(f"{ctx.bot.emoji_dict['red_tick']} Sorry, you can only have 100 tasks in your todo list at a time.")
-        if task in tasks:
-            return await ctx.send(f"{ctx.bot.emoji_dict['red_tick']} That task is already in your todo list.")
+        if tasks is None:
+            await ctx.bot.cache.create_todo(ctx.author.id)
+        else:
+            if len(tasks) >= 100:
+                return await ctx.send(f"{ctx.bot.emoji_dict['red_tick']} Sorry, you can only have 100 tasks in your todo list at a time.")
+            if task in tasks:
+                return await ctx.send(f"{ctx.bot.emoji_dict['red_tick']} That task is already in your todo list.")
 
         await ctx.bot.cache.add_todo(ctx.author.id, task)
         await ctx.send(f"{ctx.bot.emoji_dict['green_tick']} Added `{task}` to your todo list.")

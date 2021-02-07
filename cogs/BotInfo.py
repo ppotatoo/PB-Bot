@@ -99,7 +99,11 @@ class BotInfo(commands.Cog, name="Bot Info"):
         """
         if not ctx.guild:
             return await ctx.send("My prefix is always `pb` in direct messages. You can also mention me.")
-        prefixes = (await ctx.cache())["prefixes"] or ["pb"]
+        cache = await ctx.cache()
+        if cache is None or not cache["prefixes"]:
+            prefixes = ["pb"]
+        else:
+            prefixes = cache["prefixes"]
         if len(prefixes) == 1:
             return await ctx.send(f"My prefix for this server is `{prefixes[0]}`.")
         await ctx.send(f"My prefixes for this server are `{ctx.bot.utils.humanize_list(prefixes)}`.")
@@ -116,12 +120,15 @@ class BotInfo(commands.Cog, name="Bot Info"):
         if len(prefix) > 100:
             return await ctx.send("Sorry, that prefix is too long (>100 characters).")
 
-        prefixes = (await ctx.cache())["prefixes"]
-
-        if prefix in prefixes:
-            return await ctx.send(f"`{prefix}` is already a prefix for this server.")
-        if len(prefixes) > 50:
-            return await ctx.send("This server already has 50 prefixes.")
+        cache = await ctx.cache()
+        if cache is None:
+            await ctx.bot.cache.create_guild_info(ctx.guild.id)  # no need to do checks either
+        else:
+            prefixes = cache["prefixes"]
+            if prefix in prefixes:
+                return await ctx.send(f"`{prefix}` is already a prefix for this server.")
+            if len(prefixes) > 50:
+                return await ctx.send("This server already has 50 prefixes.")
 
         await ctx.bot.cache.add_prefix(ctx.guild.id, prefix)
         await ctx.send(f"Added `{prefix}` to the list of server prefixes.")
@@ -138,11 +145,10 @@ class BotInfo(commands.Cog, name="Bot Info"):
         if len(prefix) > 100:
             return await ctx.send("Sorry, that prefix is too long (>100 characters).")
 
-        prefixes = (await ctx.cache())["prefixes"]
-
-        if not prefixes:
+        cache = await ctx.cache()
+        if cache is None or not (prefixes := cache["prefixes"]):
             return await ctx.send("This server doesn't have any custom prefixes.")
-        if prefix not in prefixes:
+        elif prefix not in prefixes:
             return await ctx.send(f"Couldn't find `{prefix}` in the list of prefixes for this server.")
 
         await ctx.bot.cache.remove_prefix(ctx.guild.id, prefix)
@@ -155,6 +161,8 @@ class BotInfo(commands.Cog, name="Bot Info"):
         """
         Clears the current server's prefix list. The `manage server` permission is required to use this command.
         """
+        if (cache := await ctx.cache()) is None or not cache["prefixes"]:
+            return await ctx.send("This server doesn't have any custom prefixes.")
         confirm = await ctx.bot.utils.Confirm("Are you sure that you want to clear the prefix list for this server?").prompt(ctx)
         if confirm:
             await ctx.bot.cache.clear_prefixes(ctx.guild.id)

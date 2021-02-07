@@ -22,11 +22,11 @@ async def get_prefix(bot, message: discord.Message):
     """
     Get prefix function.
     """
-    if not message.guild:
+    if not message.guild or (cache := await bot.cache.get_guild_info(message.guild.id)) is None:
         prefixes = ["pb"]
     else:
-        prefixes = (await bot.cache.get_guild_info(message.guild.id))["prefixes"]
-        if not prefixes:  # couldn't find it or no prefixes
+        prefixes = cache["prefixes"]
+        if not prefixes:
             prefixes = ["pb"]
     prefixes = sorted(prefixes, key=len)
     for prefix in prefixes:
@@ -267,10 +267,7 @@ class Cache:
         self.guild_cache.pop(guild_id, None)
 
     async def get_guild_info(self, guild_id):
-        info = self.guild_cache.get(guild_id, None)
-        if info is None:
-            return await self.create_guild_info(guild_id)
-        return info
+        return self.guild_cache.get(guild_id, None)
 
     async def cleanup_guild_info(self, guild_id):
         cache = await self.get_guild_info(guild_id)
@@ -352,10 +349,7 @@ class Cache:
         self.todos.pop(user_id)
 
     async def get_todo(self, user_id):
-        todo = self.todos.get(user_id, None)
-        if todo is None:
-            return await self.create_todo(user_id)
-        return todo
+        return self.todos.get(user_id, None)
 
     async def cleanup_todo(self, user_id):
         todo = await self.get_todo(user_id)
