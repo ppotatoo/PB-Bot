@@ -194,7 +194,8 @@ class BlacklistSource(menus.ListPageSource):
     async def format_page(self, menu: menus.MenuPages, page):
         embed = discord.Embed(
             title="Blacklisted Users",
-            description="```yaml\n" + "\n".join(f"<@!{user_id}> - {reason}" for user_id, reason in page) + "```",
+            description="```yaml\n" + ("\n".join(
+                f"{user_id} - {reason}" for user_id, reason in page) or "No users in the blacklist.") + "```",
             colour=menu.ctx.bot.embed_colour)
         if self.get_max_pages() > 0:
             embed.set_footer(text=f"Page {menu.current_page + 1}/{self.get_max_pages()}")
@@ -760,3 +761,4 @@ class TicTacToe:
             await self.msg.add_reaction(reaction)
         await self.msg.edit(content=f"{self.show_board()}**Current Turn**: `{self.turn}`")
         await self.loop()
+

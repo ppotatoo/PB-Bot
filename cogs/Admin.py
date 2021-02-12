@@ -252,7 +252,7 @@ class Admin(commands.Cog):
         """
         Display all blacklisted users.
         """
-        data = dict(await ctx.bot.pool.fetch("SELECT * FROM blacklisted_users")).items()
+        data = list(dict(await ctx.bot.pool.fetch("SELECT * FROM blacklisted_users")).items())
         await menus.MenuPages(ctx.bot.utils.BlacklistSource(data, per_page=10), delete_message_after=True).start(ctx)
 
     @blacklist.command()

@@ -76,6 +76,16 @@ class PB_Bot(commands.Bot):
 
         @self.check
         async def global_check(ctx):
+            # check if blacklisted
+            if await ctx.bot.cache.is_blacklisted(ctx.author.id):
+                embed = discord.Embed(
+                    description=f"{ctx.author.mention}, you have been blacklisted from this bot. If you think that this"
+                                f" was a mistake, please report it in the "
+                                f"[support server]({ctx.bot.support_server_invite}).",
+                    colour=ctx.bot.embed_colour)
+                await ctx.send(embed=embed)
+                return False
+
             # check if ratelimited
             bucket = self._cd.get_bucket(ctx.message)
             retry_after = bucket.update_rate_limit()
@@ -344,6 +354,9 @@ class Cache:
     async def remove_blacklist(self, user_id):
         await self.bot.pool.execute("DELETE FROM blacklisted_users WHERE user_id = $1", user_id)
         self.blacklist.remove(user_id)
+
+    async def is_blacklisted(self, user_id):
+        return user_id in self.blacklist
 
     # todos
 
