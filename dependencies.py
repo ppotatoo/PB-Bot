@@ -232,11 +232,13 @@ class Cache:
         self.guild_cache = {}
         self.command_stats = {"top_commands_today": Counter(), "top_commands_overall": Counter(),
                               "top_users_today": Counter(), "top_users_overall": Counter()}
+        self.blacklist = []
         self.todos = {}
 
     async def load_all(self):
         await self.load_guild_info()
         await self.load_cmd_stats()
+        await self.load_blacklist()      # todo add spam violation counter
         await self.load_todos()
 
     async def dump_all(self):
@@ -326,6 +328,22 @@ class Cache:
         # clear
         self.command_stats["top_commands_today"].clear()
         self.command_stats["top_users_today"].clear()
+
+    # blacklist
+
+    async def load_blacklist(self):
+        self.blacklist = [entry["user_id"] for entry in await self.bot.pool.fetch("SELECT user_id FROM blacklisted_users")]
+
+    # async def dump_blacklist(self):
+    #     pass
+
+    async def add_blacklist(self, user_id, *, reason):
+        await self.bot.pool.execute("INSERT INTO blacklisted_users VALUES ($1, $2)", user_id, reason)
+        self.blacklist.append(user_id)
+
+    async def remove_blacklist(self, user_id):
+        await self.bot.pool.execute("DELETE FROM blacklisted_users WHERE user_id = $1", user_id)
+        self.blacklist.remove(user_id)
 
     # todos
 

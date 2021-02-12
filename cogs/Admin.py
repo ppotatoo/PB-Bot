@@ -247,6 +247,36 @@ class Admin(commands.Cog):
         embed.add_field(name="Return Value", value=f"```py\n{val or 'None'}```")
         await ctx.send(embed=embed)
 
+    @admin.group(invoke_without_command=True)
+    async def blacklist(self, ctx):
+        """
+        Display all blacklisted users.
+        """
+        data = dict(await ctx.bot.pool.fetch("SELECT * FROM blacklisted_users")).items()
+        await menus.MenuPages(ctx.bot.utils.BlacklistSource(data, per_page=10), delete_message_after=True).start(ctx)
+
+    @blacklist.command()
+    async def add(self, ctx, user: discord.User, *, reason=None):
+        """
+        Blacklist a user.
+
+        `user` - The user to blacklist.
+        `reason` - The reason why you want to blacklist them (optional).
+        """
+        reason = reason or "No reason provided."
+        await ctx.bot.cache.add_blacklist(user.id, reason=reason)
+        await ctx.send("👌")
+
+    @blacklist.command()
+    async def remove(self, ctx, *, user: discord.User):
+        """
+        Removes a user from the blacklist.
+
+        `user` - The user to remove.
+        """
+        await ctx.bot.cache.remove_blacklist(user.id)
+        await ctx.send("👌")
+
 
 def setup(bot):
     bot.add_cog(Admin())

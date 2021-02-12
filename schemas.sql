@@ -19,4 +19,9 @@ CREATE TABLE IF NOT EXISTS command_stats (
     date date,
     commands text,
     users text
-)
+);
+
+CREATE TABLE IF NOT EXISTS blacklisted_users (
+    user_id bigint PRIMARY KEY,
+    reason text
+);
