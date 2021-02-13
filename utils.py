@@ -9,6 +9,7 @@ from collections import deque
 import asyncio
 import dateparser
 import humanize
+import typing
 
 
 # helper functions
@@ -209,7 +210,7 @@ class SocketStatsSource(menus.ListPageSource):
     async def format_page(self, menu: menus.MenuPages, page):
         table = PrettyTable.fancy(["Event Name", "Total"])
         for entry in page:
-            table.add_row(entry)
+            table.add_row((entry[0], f"{entry[1]:,}"))
         return (f"```\n{table.build_table(autoscale=True)}```"
                 f"\nPage {menu.current_page + 1}/{self.get_max_pages()}" if self.get_max_pages() > 0 else "")
 
@@ -779,7 +780,7 @@ class TicTacToe:
 
 
 class PrettyTable:
-    def __init__(self, headers: list, **kwargs):
+    def __init__(self, headers: typing.Union[list, tuple], **kwargs):
         self.headers = [str(x) for x in headers]
         self.rows = []
 
@@ -796,7 +797,7 @@ class PrettyTable:
         self.double_vertical_and_horizontal = kwargs.pop("double_vertical_and_horizontal")
 
     @classmethod
-    def default(cls, headers: list):
+    def default(cls, headers: typing.Union[list, tuple]):
         attrs = {
             "top_left_corner":                  "+",
             "top_right_corner":                 "+",
@@ -813,7 +814,7 @@ class PrettyTable:
         return cls(headers, **attrs)
 
     @classmethod
-    def fancy(cls, headers: list):
+    def fancy(cls, headers: typing.Union[list, tuple]):
         attrs = {
             "top_left_corner":                  "╔",
             "top_right_corner":                 "╗",
@@ -829,7 +830,7 @@ class PrettyTable:
         }
         return cls(headers, **attrs)
 
-    def add_row(self, items: list):
+    def add_row(self, items: typing.Union[list, tuple]):
         self.rows.append([str(x) for x in items])
 
     def build_table(self, *, autoscale=False, padding: int = None):
