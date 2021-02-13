@@ -1,6 +1,6 @@
 import discord
 import datetime
-from discord.ext import commands
+from discord.ext import commands, menus
 import humanize
 import psutil
 import sys
@@ -12,10 +12,27 @@ class BotInfo(commands.Cog, name="Bot Info"):
     """
     Commands that display information about the bot.
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+    def __init__(self, bot):
+        self.bot = bot
         self.rtt_cooldown = commands.CooldownMapping.from_cooldown(1, 30, type=commands.BucketType.channel)
+        self.op_codes = {1: "HEARTBEAT",
+                         2: "IDENTIFY",
+                         3: "PRESENCE_UPDATE",
+                         4: "VOICE_STATE_UPDATE",
+                         5: "VOICE_PING",
+                         6: "RESUME",
+                         7: "RECONNECT",
+                         8: "REQUEST_GUILD_MEMBERS",
+                         9: "INVALID_SESSION",
+                         10: "HELLO",
+                         11: "HEARTBEAT_ACK"}
+
+    @commands.Cog.listener()
+    async def on_socket_response(self, message):
+        if message["op"] == 0:
+            return self.bot.cache.socketstats.update([message["t"]])
+        msg = self.op_codes.get(message["op"], "NONE")
+        self.bot.cache.socketstats.update([msg])
 
     @commands.command(aliases=["up"])
     async def uptime(self, ctx):
@@ -254,6 +271,17 @@ class BotInfo(commands.Cog, name="Bot Info"):
                               url=ctx.bot.top_gg_url, colour=ctx.bot.embed_colour)
         await ctx.send(embed=embed)
 
+    @commands.command()
+    async def socketstats(self, ctx):
+        """
+        Displays the socketstats.
+        """
+        menu = menus.MenuPages(
+            ctx.bot.utils.SocketStatsSource(list(ctx.bot.cache.socketstats.items())),
+            clear_reactions_after=True
+        )
+        await menu.start(ctx)
+
 
 def setup(bot):
-    bot.add_cog(BotInfo())
+    bot.add_cog(BotInfo(bot))

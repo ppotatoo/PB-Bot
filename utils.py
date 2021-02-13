@@ -202,6 +202,18 @@ class BlacklistSource(menus.ListPageSource):
         return embed
 
 
+class SocketStatsSource(menus.ListPageSource):
+    def __init__(self, data):
+        super().__init__(data, per_page=15)
+
+    async def format_page(self, menu: menus.MenuPages, page):
+        table = PrettyTable.fancy(["Event Name", "Total"])
+        for entry in page:
+            table.add_row(entry)
+        return (f"```\n{table.build_table(autoscale=True)}```"
+                f"\nPage {menu.current_page + 1}/{self.get_max_pages()}" if self.get_max_pages() > 0 else "")
+
+
 # menus
 
 

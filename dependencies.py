@@ -244,6 +244,7 @@ class Cache:
                               "top_users_today": Counter(), "top_users_overall": Counter()}
         self.blacklist = []
         self.todos = {}
+        self.socketstats = Counter()
 
     async def load_all(self):
         await self.load_guild_info()
