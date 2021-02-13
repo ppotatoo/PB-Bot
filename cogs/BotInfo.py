@@ -277,7 +277,7 @@ class BotInfo(commands.Cog, name="Bot Info"):
         Displays the socketstats.
         """
         menu = menus.MenuPages(
-            ctx.bot.utils.SocketStatsSource(list(ctx.bot.cache.socketstats.items())),
+            ctx.bot.utils.SocketStatsSource(ctx.bot.cache.socketstats.most_common()),
             clear_reactions_after=True
         )
         await menu.start(ctx)
