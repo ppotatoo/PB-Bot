@@ -762,3 +762,92 @@ class TicTacToe:
         await self.msg.edit(content=f"{self.show_board()}**Current Turn**: `{self.turn}`")
         await self.loop()
 
+
+# misc.
+
+
+class PrettyTable:
+    def __init__(self, headers: list, **kwargs):
+        self.headers = [str(x) for x in headers]
+        self.rows = []
+
+        self.top_left_corner = kwargs.pop("top_left_corner")
+        self.top_right_corner = kwargs.pop("top_right_corner")
+        self.bottom_left_corner = kwargs.pop("bottom_left_corner")
+        self.bottom_right_corner = kwargs.pop("bottom_right_corner")
+        self.horizontal_line = kwargs.pop("horizontal_line")
+        self.vertical_line = kwargs.pop("vertical_line")
+        self.double_vertical_and_right = kwargs.pop("double_vertical_and_right")
+        self.double_vertical_and_left = kwargs.pop("double_vertical_and_left")
+        self.double_up_and_horizontal = kwargs.pop("double_up_and_horizontal")
+        self.double_down_and_horizontal = kwargs.pop("double_down_and_horizontal")
+        self.double_vertical_and_horizontal = kwargs.pop("double_vertical_and_horizontal")
+
+    @classmethod
+    def default(cls, headers: list):
+        attrs = {
+            "top_left_corner":                  "+",
+            "top_right_corner":                 "+",
+            "bottom_left_corner":               "+",
+            "bottom_right_corner":              "+",
+            "horizontal_line":                  "-",
+            "vertical_line":                    "|",
+            "double_vertical_and_right":        "+",
+            "double_vertical_and_left":         "+",
+            "double_up_and_horizontal":         "+",
+            "double_down_and_horizontal":       "+",
+            "double_vertical_and_horizontal":   "+"
+        }
+        return cls(headers, **attrs)
+
+    @classmethod
+    def fancy(cls, headers: list):
+        attrs = {
+            "top_left_corner":                  "╔",
+            "top_right_corner":                 "╗",
+            "bottom_left_corner":               "╚",
+            "bottom_right_corner":              "╝",
+            "horizontal_line":                  "═",
+            "vertical_line":                    "║",
+            "double_vertical_and_right":        "╠",
+            "double_vertical_and_left":         "╣",
+            "double_up_and_horizontal":         "╩",
+            "double_down_and_horizontal":       "╦",
+            "double_vertical_and_horizontal":   "╬"
+        }
+        return cls(headers, **attrs)
+
+    def add_row(self, items: list):
+        self.rows.append([str(x) for x in items])
+
+    def build_table(self, *, autoscale=False, padding: int = None):
+        table = []
+        padding = padding or 2
+        # make the parts of the table
+        if autoscale:
+            entries = [
+                (self.headers[i], len(max([row[i] for row in self.rows] + [self.headers[i]], key=len)))
+                for i in range(len(self.headers))
+            ]
+        else:
+            entries = [(header, len(header)) for header in self.headers]
+        # debugging: remove when finished
+        # entries = [(h1, len1), (h2, len2)]
+        # rows = [[a, b, c], [1, 2, 3]]
+        center_lines = [self.horizontal_line * (header[1] + padding) for header in entries]
+
+        top = f"{self.top_left_corner}{self.double_down_and_horizontal.join(center_lines)}{self.top_right_corner}"
+        headers = f"{self.vertical_line}{self.vertical_line.join(header.center(size + padding) for header, size in entries)}{self.vertical_line}"
+        header_separator = f"{self.double_vertical_and_right}{self.double_vertical_and_horizontal.join(self.horizontal_line * (size + padding) for _, size in entries)}{self.double_vertical_and_left}"
+        rows = [f"{self.vertical_line}{self.vertical_line.join(entry.center(header_info[1] + padding) for entry, header_info in zip(row, entries))}{self.vertical_line}" for row in self.rows]
+        bottom = f"{self.bottom_left_corner}{self.double_up_and_horizontal.join(center_lines)}{self.bottom_right_corner}"
+
+        # construct the table
+        table.append(top)
+        table.append(headers)
+        table.append(header_separator)
+        for row in rows:
+            table.append(row)
+        table.append(bottom)
+
+        return "\n".join(table)

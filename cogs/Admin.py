@@ -277,6 +277,43 @@ class Admin(commands.Cog):
         await ctx.bot.cache.remove_blacklist(user.id)
         await ctx.send("👌")
 
+    @admin.command()
+    async def sql(self, ctx, option, *, query):
+        """
+        Executes a given sql query.
+
+        `option` - The option. Valid options include `execute`, `executemany`, `fetch`, `fetchrow` and `fetchval`.
+        `query` - The sql query to execute.
+        """
+        options = ["execute", "executemany", "fetch", "fetchrow", "fetchval"]
+        if (option := option.lower()) not in options:
+            options = "\n".join(options)
+            return await ctx.send(f"Invalid option provided. Valid options:\n{options}")
+
+        method = getattr(ctx.bot.pool, option)
+        try:
+            data = await method(query)
+        except Exception as e:
+            embed = discord.Embed(
+                title="Query did not complete successfully",
+                description=f"```diff\n-{e.__class__.__name__}: {e}```",
+                colour=0xff0000,
+                timestamp=datetime.datetime.now())
+            return await ctx.send(embed=embed)
+
+        embed = discord.Embed(title="Query completed successfully", colour=ctx.bot.embed_colour,
+                              timestamp=datetime.datetime.now())
+        if option in ["fetch", "fetchrow", "fetchval"] and data:  # fetch query; place the results in a table
+            keys = data[0].keys()
+            table = ctx.bot.utils.PrettyTable.default(keys)
+            for entry in data:
+                table.add_row(entry.values())
+            embed.description = f"```\n{table.build_table(autoscale=True)}```"
+        else:
+            embed.description = f"```\n{data or 'Nothing was returned.'}```"
+
+        await ctx.send(embed=embed)
+
 
 def setup(bot):
     bot.add_cog(Admin())
