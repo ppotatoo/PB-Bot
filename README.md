@@ -8,16 +8,16 @@ An easy to use, multipurpose discord bot written in Python.
 ## **Categories and Commands:**
 
 **Bot Info**
-> `uptime` | `ping` | `botinfo` | `prefix` | `invite` | `source` | `stats` | `support`
+> `uptime` | `ping` | `botinfo` | `prefix` | `invite` | `source` | `stats` | `support` | `vote` | `socketstats`
 
 **Fun**
 > `coinflip` | `reddit` | `cookie` | `tictactoe` | `snake`
 
 **ImageManip**
-> `solarize` | `greyscale` | `colourize` | `noise` | `rainbow` | `desaturate` | `enhance_edges` | `emboss` | `invert` | `pink_noise` | `sepia`
+> `solarize` | `greyscale` | `colourize` | `noise` | `rainbow` | `desaturate` | `edges` | `emboss` | `invert` | `pink_noise` | `sepia`
 
 **Info**
-> `avatar` | `serverinfo` | `discordstatus` | `permissions` | `define` | `userinfo`
+> `avatar` | `serverinfo` | `discordstatus` | `permissions` | `define` | `userinfo` | `raw_message`
 
 **Meta**
 > `mystbin` | `hastebin` | `xkcd` | `ocr` | `ascii` | `owoify` | `todo`
@@ -26,7 +26,7 @@ An easy to use, multipurpose discord bot written in Python.
 > `kick` | `ban`
 
 **Music**
-> `connect` | `player` | `songqueue` | `play` | `pause` | `skip` | `previous` | `volume` | `equalizer` | `fastforward` | `rewind` | `disconnect`
+> `connect` | `player` | `songqueue` | `play` | `resume` | `pause` | `skip` | `previous` | `volume` | `equalizer` | `fastforward` | `rewind` | `disconnect`
 
 ## **Signature:**
 
