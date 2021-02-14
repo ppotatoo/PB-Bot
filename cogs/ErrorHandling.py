@@ -15,7 +15,7 @@ class ErrorHandling(commands.Cog):
     Cog with global error handler.
     """
     @commands.Cog.listener()
-    async def on_command_error(self, ctx: CustomContext, error: commands.CommandInvokeError, *, from_local=False):
+    async def on_command_error(self, ctx: CustomContext, error, *, from_local=False):
         """
         Global error handler.
         ---------------------
