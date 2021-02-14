@@ -14,8 +14,8 @@ class Moderation(commands.Cog):
             raise commands.NoPrivateMessage
         return True
 
-    @commands.has_permissions(kick_members=True)
-    @commands.bot_has_permissions(kick_members=True)
+    @commands.has_guild_permissions(kick_members=True)
+    @commands.bot_has_guild_permissions(kick_members=True)
     @commands.command()
     async def kick(self, ctx: CustomContext, member: discord.Member, *, reason: str = None):
         """
@@ -31,8 +31,8 @@ class Moderation(commands.Cog):
         await member.kick(reason=f"kick done by {ctx.author}; reason: {reason}")
         await ctx.send("👌")
 
-    @commands.has_permissions(ban_members=True)
-    @commands.bot_has_permissions(ban_members=True)
+    @commands.has_guild_permissions(ban_members=True)
+    @commands.bot_has_guild_permissions(ban_members=True)
     @commands.command()
     async def ban(self, ctx: CustomContext, member: discord.Member, *, reason: str = None):
         """
