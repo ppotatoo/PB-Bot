@@ -1,4 +1,4 @@
-from dependencies import PB_Bot
+from utils.classes import PB_Bot
 from config import config
 
 

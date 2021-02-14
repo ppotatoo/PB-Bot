@@ -22,13 +22,6 @@ def owoify(text: str):
     return text.replace("l", "w").replace("L", "W").replace("r", "w").replace("R", "W")
 
 
-def top5(items: list):
-    top5items = zip(items, ["🥇", "🥈", "🥉", "🏅", "🏅"])
-    return "\n".join(
-        f"{ranking[1]} {ranking[0][0]} ({ranking[0][1]} use{'' if ranking[0][1] == 1 else 's'})"
-        for ranking in top5items)
-
-
 def humanize_list(li: list):
     """
     "Humanizes" a list.
@@ -219,13 +212,13 @@ class SocketStatsSource(menus.ListPageSource):
 
 
 class Confirm(menus.Menu):
-    def __init__(self, msg, *, timeout=120.0, delete_message_after=True, clear_reactions_after=False):
+    def __init__(self, msg: str, *, timeout: int = 120.0, delete_message_after: bool = True, clear_reactions_after: bool = False):
         super().__init__(
             timeout=timeout, delete_message_after=delete_message_after, clear_reactions_after=clear_reactions_after)
         self.msg = msg
         self.result = None
 
-    async def send_initial_message(self, ctx, channel):
+    async def send_initial_message(self, ctx: commands.Context, channel: discord.TextChannel):
         return await channel.send(self.msg)
 
     @menus.button('\N{WHITE HEAVY CHECK MARK}')
@@ -238,19 +231,19 @@ class Confirm(menus.Menu):
         self.result = False
         self.stop()
 
-    async def prompt(self, ctx):
+    async def prompt(self, ctx: commands.Context):
         await self.start(ctx, wait=True)
         return self.result
 
 
 class EmbedConfirm(menus.Menu):
-    def __init__(self, embed, *, timeout=120.0, delete_message_after=True, clear_reactions_after=False):
+    def __init__(self, embed: discord.Embed, *, timeout: int = 120.0, delete_message_after: bool = True, clear_reactions_after: bool = False):
         super().__init__(
             timeout=timeout, delete_message_after=delete_message_after, clear_reactions_after=clear_reactions_after)
         self.embed = embed
         self.result = None
 
-    async def send_initial_message(self, ctx, channel):
+    async def send_initial_message(self, ctx: commands.Context, channel: discord.TextChannel):
         return await channel.send(embed=self.embed)
 
     @menus.button('\N{WHITE HEAVY CHECK MARK}')
@@ -263,7 +256,7 @@ class EmbedConfirm(menus.Menu):
         self.result = False
         self.stop()
 
-    async def prompt(self, ctx):
+    async def prompt(self, ctx: commands.Context):
         await self.start(ctx, wait=True)
         return self.result
 
@@ -315,7 +308,7 @@ class PlayerMenu(menus.Menu):
 
         self.embed = None
 
-    async def send_initial_message(self, ctx, channel):
+    async def send_initial_message(self, ctx, channel: discord.TextChannel):
         ctx.player.menus.append(self)
         self.build_embed()
         return await channel.send(embed=self.embed)
@@ -406,7 +399,7 @@ class VolumeMenu(menus.Menu):
 
         self.embed = None
 
-    async def send_initial_message(self, ctx, channel):
+    async def send_initial_message(self, ctx, channel: discord.TextChannel):
         ctx.player.menus.append(self)
         self.build_embed()
         return await channel.send(embed=self.embed)
@@ -485,7 +478,7 @@ class VolumeMenu(menus.Menu):
 
 
 class ShortTime(commands.Converter):
-    async def convert(self, ctx, argument):
+    async def convert(self, ctx: commands.Context, argument: str):
         time_unit_mapping = {
             "s": "seconds",    "sec": "seconds",    "second": "seconds",   "seconds": "seconds",
             "m": "minutes",    "min": "minutes",    "minute": "minutes",   "minutes": "minutes",
@@ -511,7 +504,7 @@ class ShortTime(commands.Converter):
 
 
 class StripCodeblocks(commands.Converter):
-    async def convert(self, ctx, argument):
+    async def convert(self, ctx: commands.Context, argument: str):
         double_codeblock = re.compile(r"```(.*\n)?(.+)```", flags=re.IGNORECASE)
         inline_codeblock = re.compile(r"`(.+)`", flags=re.IGNORECASE)
         # first, try double codeblock
@@ -530,7 +523,7 @@ class StripCodeblocks(commands.Converter):
 
 
 class SnakeGame:
-    def __init__(self, *, snake_head="🟢", snake_body="🟩", apple="🍎", empty="⬜", border="🟥"):
+    def __init__(self, *, snake_head: str = "🟢", snake_body: str = "🟩", apple: str = "🍎", empty: str = "⬜", border: str = "🟥"):
         self.snake_head = snake_head
         self.snake_body = snake_body
         self.apple = apple
@@ -568,7 +561,7 @@ class SnakeGame:
                 self.apple_y = y
                 break
 
-    def move_snake(self, x: int, y: int, *, apple=False):
+    def move_snake(self, x: int, y: int, *, apple: bool = False):
         tail_coords = self.snake[-1]
         previous_x = self.snake_x
         previous_y = self.snake_y
@@ -614,7 +607,7 @@ class SnakeMenu(menus.Menu):
     """
     Menu for snake game.
     """
-    def __init__(self, player_ids, **kwargs):
+    def __init__(self, player_ids: typing.Union[list, tuple], **kwargs):
         super().__init__(**kwargs)
         self.game = SnakeGame(empty="⬛")
         self.player_ids = player_ids
@@ -623,7 +616,7 @@ class SnakeMenu(menus.Menu):
         self.embed = None
         self.is_game_start = asyncio.Event()
 
-    async def send_initial_message(self, ctx, channel):
+    async def send_initial_message(self, ctx: commands.Context, channel: discord.TextChannel):
         await self.refresh_embed()
         self.task = ctx.bot.loop.create_task(self.loop())
         return await channel.send(embed=self.embed)
@@ -701,7 +694,7 @@ class TicTacToe:
     """
     __slots__ = ("player1", "player2", "ctx", "msg", "turn", "player_mapping", "x_and_o_mapping", "board")
 
-    def __init__(self, ctx, player1, player2):
+    def __init__(self, ctx: commands.Context, player1: discord.Member, player2: discord.Member):
         self.player1 = player1
         self.player2 = player2
         self.ctx = ctx
@@ -833,7 +826,7 @@ class PrettyTable:
     def add_row(self, items: typing.Union[list, tuple]):
         self.rows.append([str(x) for x in items])
 
-    def build_table(self, *, autoscale=False, padding: int = None):
+    def build_table(self, *, autoscale: bool = False, padding: int = None):
         table = []
         padding = padding or 2
         # make the parts of the table

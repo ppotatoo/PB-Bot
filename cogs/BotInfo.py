@@ -1,18 +1,34 @@
 import discord
 import datetime
-from discord.ext import commands, menus
 import humanize
 import psutil
 import sys
 import inspect
+
+from discord.ext import commands, menus
 from jishaku import Jishaku
+
+from utils import utils
+from utils.classes import CustomContext, PB_Bot
+
+# constants
+
+PREFIX_LENGTH_LIMIT = 10
+TOTAL_PREFIX_LIMIT = 50
+
+
+def top5(items: list):
+    top5items = zip(items, ["🥇", "🥈", "🥉", "🏅", "🏅"])
+    return "\n".join(
+        f"{ranking[1]} {ranking[0][0]} ({ranking[0][1]} use{'' if ranking[0][1] == 1 else 's'})"
+        for ranking in top5items)
 
 
 class BotInfo(commands.Cog, name="Bot Info"):
     """
     Commands that display information about the bot.
     """
-    def __init__(self, bot):
+    def __init__(self, bot: PB_Bot):
         self.bot = bot
         self.rtt_cooldown = commands.CooldownMapping.from_cooldown(1, 30, type=commands.BucketType.channel)
         self.op_codes = {1: "HEARTBEAT",
@@ -35,7 +51,7 @@ class BotInfo(commands.Cog, name="Bot Info"):
         self.bot.cache.socketstats.update([msg])
 
     @commands.command(aliases=["up"])
-    async def uptime(self, ctx):
+    async def uptime(self, ctx: CustomContext):
         """
         Displays how long the bot has been online for since last restart.
         """
@@ -43,7 +59,7 @@ class BotInfo(commands.Cog, name="Bot Info"):
         await ctx.send(f"Bot has been online for **`{humanize.precisedelta(uptime)}`**.")
 
     @commands.command(usage="[-rtt|--round-trip-time]")
-    async def ping(self, ctx, *flags):
+    async def ping(self, ctx: CustomContext, *flags):
         """
         Displays the websocket latency, api response time and the database response time.
 
@@ -78,7 +94,7 @@ class BotInfo(commands.Cog, name="Bot Info"):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def botinfo(self, ctx):
+    async def botinfo(self, ctx: CustomContext):
         """
         Displays information about the bot.
         """
@@ -110,7 +126,7 @@ class BotInfo(commands.Cog, name="Bot Info"):
         await ctx.send(embed=embed)
 
     @commands.group(invoke_without_command=True)
-    async def prefix(self, ctx):
+    async def prefix(self, ctx: CustomContext):
         """
         Shows the prefix or prefixes for the current server.
         """
@@ -123,29 +139,29 @@ class BotInfo(commands.Cog, name="Bot Info"):
             prefixes = cache["prefixes"]
         if len(prefixes) == 1:
             return await ctx.send(f"My prefix for this server is `{prefixes[0]}`.")
-        await ctx.send(f"My prefixes for this server are `{ctx.bot.utils.humanize_list(prefixes)}`.")
+        await ctx.send(f"My prefixes for this server are `{utils.humanize_list(prefixes)}`.")
 
     @commands.guild_only()
     @commands.has_guild_permissions(manage_guild=True)
     @prefix.command(name="add")
-    async def add_(self, ctx, *, prefix: str):
+    async def add_(self, ctx: CustomContext, *, prefix: str):
         """
         Add a prefix to the prefix list for the current server. The `manage server` permission is required to use this command.
 
         `prefix` - The prefix to add.
         """
-        if len(prefix) > 100:
-            return await ctx.send("Sorry, that prefix is too long (>100 characters).")
+        if len(prefix) > PREFIX_LENGTH_LIMIT:
+            return await ctx.send(f"Sorry, that prefix is too long (>{PREFIX_LENGTH_LIMIT} characters).")
 
         cache = await ctx.cache()
         if cache is None:
-            await ctx.bot.cache.create_guild_info(ctx.guild.id)  # no need to do checks either
+            await ctx.bot.cache.create_guild_info(ctx.guild.id)  # no need to do checks
         else:
             prefixes = cache["prefixes"]
             if prefix in prefixes:
                 return await ctx.send(f"`{prefix}` is already a prefix for this server.")
-            if len(prefixes) > 50:
-                return await ctx.send("This server already has 50 prefixes.")
+            if len(prefixes) > TOTAL_PREFIX_LIMIT:
+                return await ctx.send(f"This server already has {TOTAL_PREFIX_LIMIT} prefixes.")
 
         await ctx.bot.cache.add_prefix(ctx.guild.id, prefix)
         await ctx.send(f"Added `{prefix}` to the list of server prefixes.")
@@ -153,14 +169,14 @@ class BotInfo(commands.Cog, name="Bot Info"):
     @commands.guild_only()
     @commands.has_guild_permissions(manage_guild=True)
     @prefix.command()
-    async def remove(self, ctx, *, prefix: str):
+    async def remove(self, ctx: CustomContext, *, prefix: str):
         """
         Remove a prefix from the prefix list for the current server. The `manage server` permission is required to use this command.
 
         `prefix` - The prefix to remove.
         """
-        if len(prefix) > 100:
-            return await ctx.send("Sorry, that prefix is too long (>100 characters).")
+        if len(prefix) > PREFIX_LENGTH_LIMIT:
+            return await ctx.send(f"Sorry, that prefix is too long (>{PREFIX_LENGTH_LIMIT} characters).")
 
         cache = await ctx.cache()
         if cache is None or not (prefixes := cache["prefixes"]):
@@ -174,19 +190,19 @@ class BotInfo(commands.Cog, name="Bot Info"):
     @commands.guild_only()
     @commands.has_guild_permissions(manage_guild=True)
     @prefix.command()
-    async def clear(self, ctx):
+    async def clear(self, ctx: CustomContext):
         """
         Clears the current server's prefix list. The `manage server` permission is required to use this command.
         """
         if (cache := await ctx.cache()) is None or not cache["prefixes"]:
             return await ctx.send("This server doesn't have any custom prefixes.")
-        confirm = await ctx.bot.utils.Confirm("Are you sure that you want to clear the prefix list for this server?").prompt(ctx)
+        confirm = await utils.Confirm("Are you sure that you want to clear the prefix list for this server?").prompt(ctx)
         if confirm:
             await ctx.bot.cache.clear_prefixes(ctx.guild.id)
             await ctx.send("Cleared the list of server prefixes.")
 
     @commands.command()
-    async def invite(self, ctx):
+    async def invite(self, ctx: CustomContext):
         """
         Displays my invite link.
         """
@@ -194,7 +210,7 @@ class BotInfo(commands.Cog, name="Bot Info"):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=["src"])
-    async def source(self, ctx, *, command: str = None):
+    async def source(self, ctx: CustomContext, *, command: str = None):
         """
         View my source code for a specific command.
 
@@ -229,7 +245,7 @@ class BotInfo(commands.Cog, name="Bot Info"):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def stats(self, ctx):
+    async def stats(self, ctx: CustomContext):
         """
         Displays the command usage stats.
         """
@@ -241,21 +257,17 @@ class BotInfo(commands.Cog, name="Bot Info"):
                              for user_id, counter in ctx.bot.cache.command_stats["top_users_overall"].most_common(5)]
 
         embed = discord.Embed(title="Command Stats", colour=ctx.bot.embed_colour)
-        embed.add_field(name="Top 5 Commands Today",
-                        value=ctx.bot.utils.top5(top5commands_today) or "No commands have been used today.")
-        embed.add_field(name="Top 5 Users Today",
-                        value=ctx.bot.utils.top5(top5users_today) or "No one has used any commands today.")
+        embed.add_field(name="Top 5 Commands Today", value=top5(top5commands_today) or "No commands have been used today.")
+        embed.add_field(name="Top 5 Users Today", value=top5(top5users_today) or "No one has used any commands today.")
         embed.add_field(name="\u200b", value="\u200b")
-        embed.add_field(name="Top 5 Commands Overall",
-                        value=ctx.bot.utils.top5(top5commands_overall) or "No commands have been used.")
-        embed.add_field(name="Top 5 Users Overall",
-                        value=ctx.bot.utils.top5(top5users_overall) or "No one has used any commands.")
+        embed.add_field(name="Top 5 Commands Overall", value=top5(top5commands_overall) or "No commands have been used.")
+        embed.add_field(name="Top 5 Users Overall", value=top5(top5users_overall) or "No one has used any commands.")
         embed.add_field(name="\u200b", value="\u200b")
 
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def support(self, ctx):
+    async def support(self, ctx: CustomContext):
         """
         Displays my support server's invite link.
         """
@@ -263,7 +275,7 @@ class BotInfo(commands.Cog, name="Bot Info"):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def vote(self, ctx):
+    async def vote(self, ctx: CustomContext):
         """
         Displays my vote link.
         """
@@ -272,12 +284,12 @@ class BotInfo(commands.Cog, name="Bot Info"):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def socketstats(self, ctx):
+    async def socketstats(self, ctx: CustomContext):
         """
         Displays the socketstats.
         """
         menu = menus.MenuPages(
-            ctx.bot.utils.SocketStatsSource(ctx.bot.cache.socketstats.most_common()),
+            utils.SocketStatsSource(ctx.bot.cache.socketstats.most_common()),
             clear_reactions_after=True
         )
         await menu.start(ctx)

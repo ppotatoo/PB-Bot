@@ -1,12 +1,17 @@
 import discord
-from discord.ext import commands, menus
 import wavelink
 import humanize
 import datetime
+
+from discord.ext import commands, menus
 from contextlib import suppress
 
-from dependencies import CustomContext
+from utils import utils
+from utils.classes import PB_Bot, CustomContext
 from config import config
+
+DEFAULT_VOLUME = 40
+QUEUE_LIMIT = 100
 
 
 class Track(wavelink.Track):
@@ -25,6 +30,8 @@ class Player(wavelink.Player):
     """
     Custom player class.
     """
+    bot: PB_Bot
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -34,10 +41,10 @@ class Player(wavelink.Player):
 
         self.queue = []
         self.menus = []
-        self.volume = 40
+        self.volume = DEFAULT_VOLUME
         self.queue_position = 0
 
-    async def start(self, ctx):
+    async def start(self, ctx: CustomContext):
         self.session_chan = ctx.channel
         await ctx.invoke(ctx.bot.get_command("connect"))
         self.session_started = True
@@ -88,7 +95,7 @@ class Player(wavelink.Player):
 
 
 def is_playing():
-    async def predicate(ctx):
+    async def predicate(ctx: CustomContext):
         if not ctx.player.is_playing:
             await ctx.send("I am not currently playing anything.")
             return False
@@ -109,16 +116,16 @@ class Music(commands.Cog):
     """
     Music commands.
     """
-    def __init__(self, bot):
+    def __init__(self, bot: PB_Bot):
         @property
-        def get_player(ctx):
+        def get_player(ctx: CustomContext):
             return bot.wavelink.get_player(ctx.guild.id, cls=Player)
 
         CustomContext.player = get_player
-        self.bot = bot
+        self.bot: PB_Bot = bot
         bot.loop.create_task(self.start_nodes())
 
-    async def cog_check(self, ctx):
+    async def cog_check(self, ctx: CustomContext):
         if not ctx.guild:
             raise commands.NoPrivateMessage
         if not ctx.bot.wavelink.nodes:
@@ -160,7 +167,7 @@ class Music(commands.Cog):
     #             controller.current_dj = None
 
     @commands.command()
-    async def connect(self, ctx, *, voice_channel: discord.VoiceChannel = None):
+    async def connect(self, ctx: CustomContext, *, voice_channel: discord.VoiceChannel = None):
         """
         Connects the bot to a voice channel.
 
@@ -176,14 +183,14 @@ class Music(commands.Cog):
 
     @is_playing()
     @commands.command()
-    async def player(self, ctx):
+    async def player(self, ctx: CustomContext):
         """
         Opens up the player menu.
         """
-        await ctx.bot.utils.PlayerMenu(delete_message_after=True).start(ctx)
+        await utils.PlayerMenu(delete_message_after=True).start(ctx)
 
     @commands.group(invoke_without_command=True, aliases=["sq"])
-    async def songqueue(self, ctx, limit: int = None):
+    async def songqueue(self, ctx: CustomContext, limit: int = None):
         """
         View the songqueue.
 
@@ -193,17 +200,17 @@ class Music(commands.Cog):
             source = [(number, track) for number, track in enumerate(ctx.player.queue, start=1)]
         else:
             source = [(number, track) for number, track in enumerate(ctx.player.queue[:limit], start=1)]
-        await menus.MenuPages(ctx.bot.utils.QueueSource(source, ctx.player)).start(ctx)
+        await menus.MenuPages(utils.QueueSource(source, ctx.player)).start(ctx)
 
     @songqueue.command()
-    async def add(self, ctx, *, query: str):
+    async def add(self, ctx: CustomContext, *, query: str):
         """
         Alias to `play`.
         """
         await ctx.invoke(ctx.bot.get_command("play"), query=query)
 
     @songqueue.command()
-    async def remove(self, ctx, *, query: str):
+    async def remove(self, ctx: CustomContext, *, query: str):
         """
         Removes a song from the queue.
 
@@ -221,14 +228,14 @@ class Music(commands.Cog):
         await ctx.send(f"Removed all songs with the name `{track}` from the queue. Queue length: `{len(ctx.player.queue)}`")
 
     @commands.command()
-    async def play(self, ctx, *, query: str):
+    async def play(self, ctx: CustomContext, *, query: str):
         """
         Adds a song to the queue.
 
         `query` - The song to add to the queue.
         """
-        if len(ctx.player.queue) >= 100:
-            return await ctx.send("Sorry, only `100` songs can be in the queue at a time.")
+        if len(ctx.player.queue) >= QUEUE_LIMIT:
+            return await ctx.send(f"Sorry, only `{QUEUE_LIMIT}` songs can be in the queue at a time.")
 
         query_results = await ctx.bot.wavelink.get_tracks(f"ytsearch:{query}")
         if not query_results:
@@ -249,7 +256,7 @@ class Music(commands.Cog):
 
     @is_playing()
     @commands.command()
-    async def resume(self, ctx):
+    async def resume(self, ctx: CustomContext):
         """
         Resumes the player.
         """
@@ -260,7 +267,7 @@ class Music(commands.Cog):
 
     @is_playing()
     @commands.command()
-    async def pause(self, ctx):
+    async def pause(self, ctx: CustomContext):
         """
         Pauses the player.
         """
@@ -271,7 +278,7 @@ class Music(commands.Cog):
 
     @is_playing()
     @commands.command()
-    async def skip(self, ctx):
+    async def skip(self, ctx: CustomContext):
         """
         Skips the currently playing song.
         """
@@ -280,7 +287,7 @@ class Music(commands.Cog):
 
     @is_playing()
     @commands.command()
-    async def previous(self, ctx):
+    async def previous(self, ctx: CustomContext):
         """
         Stops the currently playing song and plays the previous one.
         """
@@ -288,21 +295,21 @@ class Music(commands.Cog):
         await ctx.message.add_reaction("✅")
 
     @commands.command()
-    async def volume(self, ctx, volume: int = None):
+    async def volume(self, ctx: CustomContext, volume: int = None):
         """
         Adjusts the players volume.
 
         `volume` - The new volume.
         """
         if volume is None:
-            return await ctx.bot.utils.VolumeMenu(delete_message_after=True).start(ctx)
+            return await utils.VolumeMenu(delete_message_after=True).start(ctx)
         volume = max(min(volume, 1000), 0)
         await ctx.player.set_volume(volume)
         await ctx.send(f"Set the volume to `{volume}`.")
 
     @is_playing()
     @commands.command(aliases=["eq", "setequalizer", "seteq"])
-    async def equalizer(self, ctx, *, equalizer: str):
+    async def equalizer(self, ctx: CustomContext, *, equalizer: str):
         """
         Change the players equalizer.
 
@@ -331,7 +338,7 @@ class Music(commands.Cog):
 
     @is_playing()
     @commands.command(aliases=["fastfwd"])
-    async def fastforward(self, ctx, seconds: int):
+    async def fastforward(self, ctx: CustomContext, seconds: int):
         """
         Fast forward `x` seconds into the current song.
 
@@ -343,7 +350,7 @@ class Music(commands.Cog):
 
     @is_playing()
     @commands.command()
-    async def rewind(self, ctx, seconds: int):
+    async def rewind(self, ctx: CustomContext, seconds: int):
         """
         Rewind `n` seconds.
 
@@ -354,7 +361,7 @@ class Music(commands.Cog):
         await ctx.send(f"Rewinded `{seconds}` seconds. Current position: `{humanize.precisedelta(datetime.timedelta(milliseconds=seek_position))}`")
 
     @commands.command(aliases=["dc"])
-    async def disconnect(self, ctx):
+    async def disconnect(self, ctx: CustomContext):
         """
         Disconnects the bot from the voice channel and stops the player.
         """

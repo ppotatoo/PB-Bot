@@ -1,21 +1,31 @@
 import discord
-from discord.ext import commands, tasks
 import datetime
 import aiohttp
 import wavelink
 import os
 import re
 import asyncio
-from config import config
 import asyncpg
-import utils
-from collections import Counter
 import json
 import aioredis
+import typing
+
+from collections import Counter
+from discord.ext import commands, tasks
 from copy import deepcopy
+from pyfiglet import Figlet
+
+from .utils import StopWatch
+from config import config
+
+# constants
 
 EMPTY_GUILD_CACHE = {"prefixes": []}
-EMPTY_TODO = []
+DEFAULT_PREFIXES = ["pb"]
+EMBED_COLOUR = 0x01ad98
+BOT_ID = "719907834120110182"
+PERMISSIONS = 104189127
+DESCRIPTION = "An easy to use, multipurpose discord bot written in Python by PB#4162."
 
 
 async def get_prefix(bot, message: discord.Message):
@@ -23,14 +33,14 @@ async def get_prefix(bot, message: discord.Message):
     Get prefix function.
     """
     if not message.guild or (cache := await bot.cache.get_guild_info(message.guild.id)) is None:
-        prefixes = ["pb"]
+        prefixes = DEFAULT_PREFIXES
     else:
         prefixes = cache["prefixes"]
         if not prefixes:
-            prefixes = ["pb"]
+            prefixes = DEFAULT_PREFIXES
     prefixes = sorted(prefixes, key=len)
     for prefix in prefixes:
-        match = re.match(f"^({prefix}\s*).*", message.content, flags=re.IGNORECASE)
+        match = re.match(rf"^({prefix}\s*).*", message.content, flags=re.IGNORECASE)
         if match:
             return match.group(1)
     # fallback
@@ -49,33 +59,40 @@ class PB_Bot(commands.Bot):
             case_insensitive=True,
             intents=intents,
             owner_id=config["owner_id"],
-            description="An easy to use, multipurpose discord bot written in Python by PB#4162."
+            description=DESCRIPTION
         )
+
+        # case-insensitive cogs
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()
 
+        # general stuff
         self.start_time = datetime.datetime.now()
         self.session = aiohttp.ClientSession()
         self.wavelink = wavelink.Client(bot=self)
         self.coglist = [f"cogs.{item[:-3]}" for item in os.listdir("cogs") if item != "__pycache__"] + ["jishaku"]
+        self.command_list = []
+        self.figlet = Figlet()
+        self.embed_colour = EMBED_COLOUR
 
+        # database connections
         self.pool = asyncio.get_event_loop().run_until_complete(asyncpg.create_pool(**config["postgresql"]))
         self.redis = asyncio.get_event_loop().run_until_complete(aioredis.create_redis_pool(config["redis"]))
 
-        self.utils = utils
-        self.command_list = []
-        self.embed_colour = 0x01ad98
-
+        # cache
         self.cache = Cache(self)
 
+        # links
         self.github_url = "https://github.com/PB4162/PB-Bot"
-        self.invite_url = discord.utils.oauth_url("719907834120110182", permissions=discord.Permissions(104189127))
+        self.invite_url = discord.utils.oauth_url(BOT_ID, permissions=discord.Permissions(PERMISSIONS))
         self.support_server_invite = "https://discord.gg/qQVDqXvmVt"
         self.top_gg_url = "https://top.gg/bot/719907834120110182"
 
-        self._cd = commands.CooldownMapping.from_cooldown(rate=5, per=5, type=commands.BucketType.user)
+        # global ratelimit
+        self.global_cooldown = commands.CooldownMapping.from_cooldown(rate=5, per=5, type=commands.BucketType.user)
 
+        # global check
         @self.check
-        async def global_check(ctx):
+        async def global_check(ctx: CustomContext):
             # check if blacklisted
             if await ctx.bot.cache.is_blacklisted(ctx.author.id):
                 embed = discord.Embed(
@@ -87,12 +104,13 @@ class PB_Bot(commands.Bot):
                 return False
 
             # check if ratelimited
-            bucket = self._cd.get_bucket(ctx.message)
+            bucket = self.global_cooldown.get_bucket(ctx.message)
             retry_after = bucket.update_rate_limit()
             if retry_after:
                 raise StopSpammingMe()
             return True
 
+        # emojis
         self.emoji_dict = {
             "red_line": "<:red_line:799429087352717322>",
             "white_line": "<:white_line:799429050061946881>",
@@ -113,8 +131,12 @@ class PB_Bot(commands.Bot):
             "downvote": "<:downvote:799432736892911646>",
         }
 
+    # custom context
+
     async def get_context(self, message: discord.Message, *, cls=None):
         return await super().get_context(message, cls=cls or CustomContext)
+
+    # events
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
         if after.author.id == self.owner_id:
@@ -131,28 +153,32 @@ class PB_Bot(commands.Bot):
     async def on_guild_leave(self, guild: discord.Guild):
         await self.cache.delete_guild_info(guild.id)
 
-    def beta_command(self):
-        async def predicate(ctx):
-            if ctx.author.id != self.owner_id:
-                await ctx.send(f"The `{ctx.command}` command is currently in beta. Only my owner can use it.")
-                return False
-            return True
-        return commands.check(predicate)
+    async def on_command(self, ctx):
+        self.cache.command_stats["top_commands_today"].update({ctx.command.qualified_name: 1})
+        self.cache.command_stats["top_commands_overall"].update({ctx.command.qualified_name: 1})
 
-    async def api_ping(self, ctx):
-        with self.utils.StopWatch() as sw:
+        self.cache.command_stats["top_users_today"].update({str(ctx.author.id): 1})
+        self.cache.command_stats["top_users_overall"].update({str(ctx.author.id): 1})
+
+    # ping helpers
+
+    @staticmethod
+    async def api_ping(ctx):
+        with StopWatch() as sw:
             await ctx.trigger_typing()
         return sw.elapsed
 
     async def postgresql_ping(self):
-        with self.utils.StopWatch() as sw:
+        with StopWatch() as sw:
             await self.pool.fetch("SELECT 1")
         return sw.elapsed
 
     async def redis_ping(self):
-        with self.utils.StopWatch() as sw:
+        with StopWatch() as sw:
             await self.redis.ping()
         return sw.elapsed
+
+    # loops
 
     @tasks.loop(minutes=30)
     async def presence_update(self):
@@ -183,20 +209,33 @@ class PB_Bot(commands.Bot):
     async def dump_cmd_stats(self):
         await self.cache.dump_cmd_stats()
 
-    async def on_command(self, ctx):
-        self.cache.command_stats["top_commands_today"].update({ctx.command.qualified_name: 1})
-        self.cache.command_stats["top_commands_overall"].update({ctx.command.qualified_name: 1})
+    # pastebin
 
-        self.cache.command_stats["top_users_today"].update({str(ctx.author.id): 1})
-        self.cache.command_stats["top_users_overall"].update({str(ctx.author.id): 1})
+    async def mystbin(self, data):
+        async with self.session.post("https://mystb.in/documents", data=data) as r:
+            return f"https://mystb.in/{(await r.json())['key']}"
 
-    async def close(self):
-        await self.cache.dump_all()
-        await super().close()
+    async def hastebin(self, data):
+        async with self.session.post("https://hastebin.com/documents", data=data) as r:
+            return f"https://hastebin.com/{(await r.json())['key']}"
+
+    # other
+
+    def beta_command(self):
+        async def predicate(ctx: CustomContext):
+            if ctx.author.id != self.owner_id:
+                await ctx.send(f"The `{ctx.command}` command is currently in beta. Only my owner can use it.")
+                return False
+            return True
+        return commands.check(predicate)
 
     async def schemas(self):
         with open("schemas.sql") as f:
             await self.pool.execute(f.read())
+
+    async def close(self):
+        await self.cache.dump_all()
+        await super().close()
 
     def run(self, *args, **kwargs):
         for cog in self.coglist:
@@ -225,14 +264,6 @@ class PB_Bot(commands.Bot):
         self.dump_cmd_stats.start()
         self.clear_cmd_stats.start()
         super().run(*args, **kwargs)
-
-    async def mystbin(self, data):
-        async with self.session.post("https://mystb.in/documents", data=data) as r:
-            return f"https://mystb.in/{(await r.json())['key']}"
-
-    async def hastebin(self, data):
-        async with self.session.post("https://hastebin.com/documents", data=data) as r:
-            return f"https://hastebin.com/{(await r.json())['key']}"
 
 
 class Cache:
@@ -270,34 +301,34 @@ class Cache:
             await self.bot.pool.execute("UPDATE guild_info SET prefixes = $1 WHERE guild_id = $2", data["prefixes"], guild_id)
             # idk how to make this dynamic
 
-    async def create_guild_info(self, guild_id):
+    async def create_guild_info(self, guild_id: int):
         await self.bot.pool.execute("INSERT INTO guild_info VALUES ($1)", guild_id)
         self.guild_cache[guild_id] = deepcopy(EMPTY_GUILD_CACHE)
         return self.guild_cache[guild_id]
 
-    async def delete_guild_info(self, guild_id):
+    async def delete_guild_info(self, guild_id: int):
         await self.bot.pool.execute("DELETE FROM guild_info WHERE guild_id = $1", guild_id)
         self.guild_cache.pop(guild_id, None)
 
-    async def get_guild_info(self, guild_id):
+    async def get_guild_info(self, guild_id: int):
         return self.guild_cache.get(guild_id, None)
 
-    async def cleanup_guild_info(self, guild_id):
+    async def cleanup_guild_info(self, guild_id: int):
         cache = await self.get_guild_info(guild_id)
         if cache == EMPTY_GUILD_CACHE:
             await self.delete_guild_info(guild_id)
 
-    async def add_prefix(self, guild_id, prefix):
+    async def add_prefix(self, guild_id: int, prefix: str):
         await self.bot.pool.execute("UPDATE guild_info SET prefixes = array_append(prefixes, $1) WHERE guild_id = $2", prefix, guild_id)
         (await self.get_guild_info(guild_id))["prefixes"].append(prefix)
 
-    async def remove_prefix(self, guild_id, prefix):
+    async def remove_prefix(self, guild_id: int, prefix: str):
         await self.bot.pool.execute("UPDATE guild_info SET prefixes = array_remove(prefixes, $1) WHERE guild_id = $2", prefix, guild_id)
         (await self.get_guild_info(guild_id))["prefixes"].remove(prefix)
 
         await self.cleanup_guild_info(guild_id)
 
-    async def clear_prefixes(self, guild_id):
+    async def clear_prefixes(self, guild_id: int):
         await self.bot.pool.execute("UPDATE guild_info SET prefixes = '{}' WHERE guild_id = $1", guild_id)
         (await self.get_guild_info(guild_id))["prefixes"].clear()
 
@@ -348,15 +379,15 @@ class Cache:
     # async def dump_blacklist(self):
     #     pass
 
-    async def add_blacklist(self, user_id, *, reason):
+    async def add_blacklist(self, user_id: int, *, reason: str):
         await self.bot.pool.execute("INSERT INTO blacklisted_users VALUES ($1, $2)", user_id, reason)
         self.blacklist.append(user_id)
 
-    async def remove_blacklist(self, user_id):
+    async def remove_blacklist(self, user_id: int):
         await self.bot.pool.execute("DELETE FROM blacklisted_users WHERE user_id = $1", user_id)
         self.blacklist.remove(user_id)
 
-    async def is_blacklisted(self, user_id):
+    async def is_blacklisted(self, user_id: int):
         return user_id in self.blacklist
 
     # todos
@@ -371,34 +402,34 @@ class Cache:
         for user_id, tasks_ in items:
             await self.bot.pool.execute("UPDATE todos SET tasks = $1 WHERE user_id = $2", tasks_, user_id)
 
-    async def create_todo(self, user_id):
+    async def create_todo(self, user_id: int):
         await self.bot.pool.execute("INSERT INTO todos VALUES ($1)", user_id)
-        self.todos[user_id] = deepcopy(EMPTY_TODO)
+        self.todos[user_id] = []
         return self.todos[user_id]
 
-    async def delete_todo(self, user_id):
+    async def delete_todo(self, user_id: int):
         await self.bot.pool.execute("DELETE FROM todos WHERE user_id = $1", user_id)
         self.todos.pop(user_id)
 
-    async def get_todo(self, user_id):
+    async def get_todo(self, user_id: int):
         return self.todos.get(user_id, None)
 
-    async def cleanup_todo(self, user_id):
+    async def cleanup_todo(self, user_id: int):
         todo = await self.get_todo(user_id)
-        if todo == EMPTY_TODO:
+        if not todo:
             await self.delete_todo(user_id)
 
-    async def add_todo(self, user_id, task):
+    async def add_todo(self, user_id: int, task: str):
         await self.bot.pool.execute("UPDATE todos SET tasks = array_append(tasks, $1) WHERE user_id = $2", task, user_id)
         (await self.get_todo(user_id)).append(task)
 
-    async def remove_todo(self, user_id, task):
+    async def remove_todo(self, user_id: int, task: str):
         await self.bot.pool.execute("UPDATE todos SET tasks = array_remove(tasks, $1) WHERE user_id = $2", task, user_id)
         (await self.get_todo(user_id)).remove(task)
 
         await self.cleanup_todo(user_id)
 
-    async def clear_todos(self, user_id):
+    async def clear_todos(self, user_id: int):
         await self.bot.pool.execute("UPDATE todos SET tasks = '{}' WHERE user_id = $1", user_id)
         (await self.get_todo(user_id)).clear()
 
@@ -409,6 +440,9 @@ class CustomContext(commands.Context):
     """
     Custom context class.
     """
+    bot: PB_Bot
+    player: typing.Any
+
     @property
     def clean_prefix(self):
         prefix = re.sub(f"<@!?{self.bot.user.id}>", "@PB Bot", self.prefix)

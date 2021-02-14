@@ -1,10 +1,14 @@
 import discord
-from discord.ext import commands
 import random
 import asyncio
 import time
 import humanize
 import datetime
+
+from discord.ext import commands
+
+from utils import utils
+from utils.classes import CustomContext
 
 
 class Fun(commands.Cog):
@@ -12,7 +16,7 @@ class Fun(commands.Cog):
     Fun commands.
     """
     @commands.command()
-    async def coinflip(self, ctx):
+    async def coinflip(self, ctx: CustomContext):
         """
         Returns heads, tails or ???.
         """
@@ -22,7 +26,7 @@ class Fun(commands.Cog):
         await ctx.send(f"You flipped a coin and got `{result}`!")
 
     @commands.command()
-    async def reddit(self, ctx, *, subreddit):
+    async def reddit(self, ctx: CustomContext, *, subreddit: str):
         """
         Gets a random post from a subreddit.
 
@@ -52,7 +56,7 @@ class Fun(commands.Cog):
             cembed = discord.Embed(
                 title="This post has been marked as nsfw. Are you sure that you want to view it?",
                 description="If you agree, it will be sent to your dms.", colour=ctx.bot.embed_colour)
-            confirm = await ctx.bot.utils.EmbedConfirm(cembed).prompt(ctx)
+            confirm = await utils.EmbedConfirm(cembed).prompt(ctx)
             if confirm:
                 await ctx.author.send(embed=embed)
             return
@@ -60,7 +64,7 @@ class Fun(commands.Cog):
 
     @commands.max_concurrency(1, per=commands.BucketType.channel)
     @commands.command(aliases=["c"])
-    async def cookie(self, ctx):
+    async def cookie(self, ctx: CustomContext):
         """
         Yum yum.
         """
@@ -94,7 +98,7 @@ class Fun(commands.Cog):
             colour=ctx.bot.embed_colour))
 
     @commands.command(aliases=["ttt", "tic-tac-toe"])
-    async def tictactoe(self, ctx, *, player2: discord.Member):
+    async def tictactoe(self, ctx: CustomContext, *, player2: discord.Member):
         """
         Challenge someone to a game of tic-tac-toe!
 
@@ -128,12 +132,12 @@ class Fun(commands.Cog):
             return await ctx.send(f"**{player2}** took too long to respond. {msg.jump_url}")
         if response.emoji == "\N{CROSS MARK}":
             return await ctx.send(f"**{player2}** has declined your challenge {ctx.author.mention}.")
-        ttt = ctx.bot.utils.TicTacToe(ctx, ctx.author, player2)
+        ttt = utils.TicTacToe(ctx, ctx.author, player2)
         await ttt.start()
 
     @commands.max_concurrency(1, per=commands.BucketType.channel)
     @commands.command()
-    async def snake(self, ctx, *args):
+    async def snake(self, ctx: CustomContext, *args):
         """
         Play a game of snake by yourself or with others.
 
@@ -158,7 +162,7 @@ class Fun(commands.Cog):
                     if not player.bot:
                         player_ids.add(player.id)
                 player_ids.add(ctx.author.id)
-            menu = ctx.bot.utils.SnakeMenu(player_ids, clear_reactions_after=True)
+            menu = utils.SnakeMenu(player_ids, clear_reactions_after=True)
         await menu.start(ctx, wait=True)  # end typing
 
 

@@ -1,16 +1,15 @@
 import discord
-from discord.ext import commands, menus
 import datetime
 import re
 import subprocess
 import typing
-import io
-from contextlib import redirect_stdout, suppress
-import textwrap
-import traceback
 
-from utils import StripCodeblocks
+from discord.ext import commands, menus
 
+from utils import utils
+from utils.classes import CustomContext
+
+# constants
 
 SUPPORT_SERVER_ID = 798329404325101600
 
@@ -19,23 +18,23 @@ class Admin(commands.Cog):
     """
     Commands that only my owner can use.
     """
-    async def cog_check(self, ctx):
+    async def cog_check(self, ctx: CustomContext):
         if not await ctx.bot.is_owner(ctx.author):
             raise commands.NotOwner
         return True
 
     @commands.group(invoke_without_command=True, aliases=["adm", "dev", "owner"])
-    async def admin(self, ctx):
+    async def admin(self, ctx: CustomContext):
         """
         Admin commands.
         """
 
     @admin.command(aliases=["terminate", "stop"])
-    async def shutdown(self, ctx):
+    async def shutdown(self, ctx: CustomContext):
         """
         Shuts down the bot.
         """
-        confirm_embed = ctx.bot.utils.EmbedConfirm(discord.Embed(title="Are you sure?", colour=ctx.bot.embed_colour),
+        confirm_embed = utils.EmbedConfirm(discord.Embed(title="Are you sure?", colour=ctx.bot.embed_colour),
                                                    delete_message_after=False)
         confirm = await confirm_embed.prompt(ctx)
         if confirm:
@@ -48,7 +47,7 @@ class Admin(commands.Cog):
         await confirm_embed.message.delete()
 
     @admin.command()
-    async def load(self, ctx, *cogs):
+    async def load(self, ctx: CustomContext, *cogs):
         """
         Loads cogs.
 
@@ -70,7 +69,7 @@ class Admin(commands.Cog):
         await ctx.send(f"**Finished Loading Cogs**\n\n{finished_cogs}")
 
     @admin.command()
-    async def unload(self, ctx, *cogs):
+    async def unload(self, ctx: CustomContext, *cogs):
         """
         Unloads cogs.
 
@@ -97,7 +96,7 @@ class Admin(commands.Cog):
         await ctx.send(f"**Finished Unloading Cogs**\n\n{finished_cogs}")
 
     @admin.command()
-    async def reload(self, ctx, *cogs):
+    async def reload(self, ctx: CustomContext, *cogs):
         """
         Reloads cogs.
 
@@ -118,7 +117,7 @@ class Admin(commands.Cog):
         await ctx.send(f"**Finished Reloading Cogs**\n\n{finished_cogs}")
 
     @admin.command()
-    async def cleanup(self, ctx, amount: int = 10, limit: int = 100):
+    async def cleanup(self, ctx: CustomContext, amount: int = 10, limit: int = 100):
         """
         Self-deletes messages in the current channel.
 
@@ -135,7 +134,8 @@ class Admin(commands.Cog):
         await ctx.send(f"Successfully purged `{counter}` message(s).")
 
     @admin.command()
-    async def emojisnipe(self, ctx, name: str, emoji: typing.Union[discord.Emoji, discord.PartialEmoji] = None):
+    async def emojisnipe(self, ctx: CustomContext, name: str,
+                         emoji: typing.Union[discord.Emoji, discord.PartialEmoji] = None):
         """
         Snipes emojis for personal use.
 
@@ -152,17 +152,17 @@ class Admin(commands.Cog):
         await ctx.send("👌")
 
     @admin.group(invoke_without_command=True)
-    async def error(self, ctx):
+    async def error(self, ctx: CustomContext):
         """
         View the errors in the database.
         """
         errors = await ctx.bot.pool.fetch("SELECT * FROM errors")
         if not errors:
             return await ctx.send("No errors in the database! 🥳")
-        await menus.MenuPages(ctx.bot.utils.ErrorSource(errors, per_page=1), delete_message_after=True).start(ctx)
+        await menus.MenuPages(utils.ErrorSource(errors, per_page=1), delete_message_after=True).start(ctx)
 
     @error.command()
-    async def view(self, ctx, err_num: int):
+    async def view(self, ctx: CustomContext, err_num: int):
         """
         View information about an error in the database.
 
@@ -171,10 +171,10 @@ class Admin(commands.Cog):
         error = await ctx.bot.pool.fetch(f"SELECT * FROM errors WHERE err_num = $1", err_num)
         if not error:
             return await ctx.send(f"Could not find an error with the number `{err_num}` in the database.")
-        await menus.MenuPages(ctx.bot.utils.ErrorSource([error], per_page=1)).start(ctx)  # lazy me :p
+        await menus.MenuPages(utils.ErrorSource([error], per_page=1)).start(ctx)  # lazy me :p
 
     @error.command()
-    async def fix(self, ctx, error):
+    async def fix(self, ctx: CustomContext, error: str):
         """
         Remove an error or errors from the database.
 
@@ -195,7 +195,7 @@ class Admin(commands.Cog):
             await ctx.send("Invalid option.")
 
     @admin.command()
-    async def sync(self, ctx):
+    async def sync(self, ctx: CustomContext):
         """
         Syncs code with github and restarts the bot.
         """
@@ -248,15 +248,15 @@ class Admin(commands.Cog):
     #     await ctx.send(embed=embed)
 
     @admin.group(invoke_without_command=True)
-    async def blacklist(self, ctx):
+    async def blacklist(self, ctx: CustomContext):
         """
         Display all blacklisted users.
         """
         data = list(dict(await ctx.bot.pool.fetch("SELECT * FROM blacklisted_users")).items())
-        await menus.MenuPages(ctx.bot.utils.BlacklistSource(data, per_page=10), delete_message_after=True).start(ctx)
+        await menus.MenuPages(utils.BlacklistSource(data, per_page=10), delete_message_after=True).start(ctx)
 
     @blacklist.command()
-    async def add(self, ctx, user: discord.User, *, reason=None):
+    async def add(self, ctx: CustomContext, user: discord.User, *, reason: str = None):
         """
         Blacklist a user.
 
@@ -268,7 +268,7 @@ class Admin(commands.Cog):
         await ctx.send("👌")
 
     @blacklist.command()
-    async def remove(self, ctx, *, user: discord.User):
+    async def remove(self, ctx: CustomContext, *, user: discord.User):
         """
         Removes a user from the blacklist.
 
@@ -278,7 +278,7 @@ class Admin(commands.Cog):
         await ctx.send("👌")
 
     @admin.command()
-    async def sql(self, ctx, option, *, query):
+    async def sql(self, ctx: CustomContext, option: str, *, query: str):
         """
         Executes a given sql query.
 
@@ -305,7 +305,7 @@ class Admin(commands.Cog):
                               timestamp=datetime.datetime.now())
         if option in ["fetch", "fetchrow", "fetchval"] and data:  # fetch query; place the results in a table
             keys = data[0].keys()
-            table = ctx.bot.utils.PrettyTable.default(keys)
+            table = utils.PrettyTable.default(keys)
             for entry in data:
                 table.add_row(entry.values())
             embed.description = f"```\n{table.build_table(autoscale=True)}```"
