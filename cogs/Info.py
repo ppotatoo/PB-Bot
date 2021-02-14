@@ -1,9 +1,13 @@
 import discord
-from discord.ext import commands, menus
 import humanize
 import datetime
-from collections import Counter
 import json
+
+from discord.ext import commands, menus
+from collections import Counter
+
+from utils import utils
+from utils.classes import CustomContext
 
 
 class Info(commands.Cog):
@@ -11,7 +15,7 @@ class Info(commands.Cog):
     Information commands.
     """
     @commands.command(aliases=["av"])
-    async def avatar(self, ctx, *, member: discord.Member = None):
+    async def avatar(self, ctx: CustomContext, *, member: discord.Member = None):
         """
         Returns the avatar and avatar url of a member.
 
@@ -19,13 +23,13 @@ class Info(commands.Cog):
         """
         member = member or ctx.author
         embed = discord.Embed(title=f"{member}'s avatar", description=f"[Open original]({member.avatar_url})",
-                              colour=ctx.bot.embed_colour)
+                              colour=member.colour)
         embed.set_image(url=member.avatar_url)
         await ctx.send(embed=embed)
 
     @commands.guild_only()
     @commands.command(aliases=["si", "gi", "server_info", "guild_info", "guildinfo"])
-    async def serverinfo(self, ctx):
+    async def serverinfo(self, ctx: CustomContext):
         """
         Displays information about this server.
         """
@@ -81,7 +85,7 @@ class Info(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=["dstatus"], usage="[-h|--history]")
-    async def discordstatus(self, ctx, *flags):
+    async def discordstatus(self, ctx: CustomContext, *flags):
         """
         View the current status of discord. Source: https://discordstatus.com
 
@@ -92,7 +96,7 @@ class Info(commands.Cog):
             if "-h" in flags or "--history" in flags:
                 async with ctx.bot.session.get("https://srhpyqt94yxb.statuspage.io/api/v2/incidents.json") as r:
                     incidents = (await r.json())["incidents"]
-                return await menus.MenuPages(ctx.bot.utils.HistorySource(incidents, per_page=1), clear_reactions_after=True).start(ctx)
+                return await menus.MenuPages(utils.HistorySource(incidents, per_page=1), clear_reactions_after=True).start(ctx)
 
             async with ctx.bot.session.get("https://srhpyqt94yxb.statuspage.io/api/v2/summary.json") as r:
                 summary = await r.json()
@@ -126,11 +130,11 @@ class Info(commands.Cog):
                 description="```yaml\n" + "\n".join(f"{k.rjust(len(max(components.keys(), key=len)))}: {v}" for k, v in components.items()) + "```",
                 colour=ctx.bot.embed_colour)
 
-            await menus.MenuPages(ctx.bot.utils.DiscordStatusSource([embed1, embed2, embed3], per_page=1), clear_reactions_after=True).start(ctx)
+            await menus.MenuPages(utils.DiscordStatusSource([embed1, embed2, embed3], per_page=1), clear_reactions_after=True).start(ctx)
 
     @commands.guild_only()
     @commands.command(aliases=["perms"])
-    async def permissions(self, ctx, *, member: discord.Member = None):
+    async def permissions(self, ctx: CustomContext, *, member: discord.Member = None):
         """
         Display the permissions of a member.
 
@@ -139,7 +143,7 @@ class Info(commands.Cog):
         member = member or ctx.author
         perms = list(member.permissions_in(ctx.channel))
         split_perms = [perms[x:x+12] for x in range(0, len(perms), 12)]
-        embed = discord.Embed(title=f"Permissions for `{member}` in `{ctx.channel}`", colour=ctx.bot.embed_colour)
+        embed = discord.Embed(title=f"Permissions for `{member}` in `{ctx.channel}`", colour=member.colour)
         for li in split_perms:
             field_perms = []
             for perm, value in li:
@@ -150,7 +154,7 @@ class Info(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def define(self, ctx, *, word):
+    async def define(self, ctx: CustomContext, *, word: str):
         """
         Search up the definition of a word. Source: https://dictionaryapi.dev/
 
@@ -162,10 +166,10 @@ class Info(commands.Cog):
                 response = await r.json()
             if isinstance(response, dict):
                 return await ctx.send("Sorry pal, I couldn't find definitions for the word you were looking for.")
-            await menus.MenuPages(ctx.bot.utils.DefineSource(response[0]["meanings"], response[0]), clear_reactions_after=True).start(ctx)
+            await menus.MenuPages(utils.DefineSource(response[0]["meanings"], response[0]), clear_reactions_after=True).start(ctx)
 
     @commands.command(aliases=["ui"])
-    async def userinfo(self, ctx, *, member: discord.Member = None):
+    async def userinfo(self, ctx: CustomContext, *, member: discord.Member = None):
         """
         Get the userinfo for a member.
 
@@ -194,13 +198,13 @@ class Info(commands.Cog):
             value=
             f"**Joined:** {humanize.naturaldate(member.joined_at)} ({humanize.precisedelta(datetime.datetime.now() - member.joined_at)} ago)\n"
             f"**Top Role:** {member.top_role.mention}\n"
-            f"**Roles:** {ctx.bot.utils.humanize_list([role.mention for role in member.roles[1:]]) or 'None'}",
+            f"**Roles:** {utils.humanize_list([role.mention for role in member.roles[1:]]) or 'None'}",
             inline=False)
         embed.set_footer(text=f"Created {humanize.precisedelta(datetime.datetime.now() - member.created_at)} ago")
         await ctx.send(embed=embed)
 
     @commands.command(aliases=["rawmessage", "rawmsg"])
-    async def raw_message(self, ctx, *, message: discord.Message = None):
+    async def raw_message(self, ctx: CustomContext, *, message: discord.Message = None):
         """
         Get the raw info for a message.
 

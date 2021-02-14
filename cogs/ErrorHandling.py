@@ -1,11 +1,13 @@
 import discord
-from discord.ext import commands
 import traceback
 import difflib
 import re
-from contextlib import suppress
 
-from dependencies import StopSpammingMe
+from contextlib import suppress
+from discord.ext import commands
+
+from utils import utils
+from utils.classes import CustomContext, StopSpammingMe
 
 
 class ErrorHandling(commands.Cog):
@@ -13,7 +15,7 @@ class ErrorHandling(commands.Cog):
     Cog with global error handler.
     """
     @commands.Cog.listener()
-    async def on_command_error(self, ctx, error, *, from_local=False):
+    async def on_command_error(self, ctx: CustomContext, error, *, from_local=False):
         """
         Global error handler.
         ---------------------
@@ -26,7 +28,7 @@ class ErrorHandling(commands.Cog):
         error = getattr(error, "original", error)
 
         if isinstance(error, commands.CommandNotFound):
-            failed_command = re.match(f"^({ctx.prefix})\s*(.*)", ctx.message.content, flags=re.IGNORECASE).group(2)
+            failed_command = re.match(rf"^({ctx.prefix})\s*(.*)", ctx.message.content, flags=re.IGNORECASE).group(2)
             matches = difflib.get_close_matches(failed_command, ctx.bot.command_list)
             if not matches:
                 return
@@ -42,11 +44,11 @@ class ErrorHandling(commands.Cog):
             await ctx.send("This command can only be used in a server.")
 
         elif isinstance(error, commands.MissingPermissions):
-            perms = ctx.bot.utils.humanize_list(error.missing_perms).replace("_", " ").replace("guild", "server")
+            perms = utils.humanize_list(error.missing_perms).replace("_", " ").replace("guild", "server")
             await ctx.send(f"You are missing the `{perms}` permission(s) to use this command.")
 
         elif isinstance(error, commands.BotMissingPermissions):
-            perms = ctx.bot.utils.humanize_list(error.missing_perms).replace("_", " ").replace("guild", "server")
+            perms = utils.humanize_list(error.missing_perms).replace("_", " ").replace("guild", "server")
             await ctx.send(f"I am missing the `{perms}` permission(s) to use this command.")
 
         elif isinstance(error, StopSpammingMe):
@@ -74,7 +76,7 @@ class ErrorHandling(commands.Cog):
             await ctx.send(embed=embed)
 
         elif isinstance(error, (commands.MessageNotFound, commands.ChannelNotFound, commands.MemberNotFound, commands.EmojiNotFound, commands.RoleNotFound, commands.UserNotFound)):
-            await ctx.send(error)
+            await ctx.send(str(error))
 
         elif isinstance(error, (commands.BadArgument, commands.BadUnionArgument)):
             embed = discord.Embed(
@@ -84,7 +86,7 @@ class ErrorHandling(commands.Cog):
             await ctx.send(embed=embed)
 
         elif isinstance(error, commands.TooManyArguments):
-            await ctx.send(error)
+            await ctx.send(str(error))
 
         elif isinstance(error, commands.MaxConcurrencyReached):
             await ctx.send(f"The `{ctx.command}` command is limited to `{error.number}` {'use' if error.number == 1 else 'uses'} per `{error.per.name}` at a time.")
