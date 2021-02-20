@@ -139,7 +139,7 @@ class PB_Bot(commands.Bot):
     # events
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
-        if after.author.id == self.owner_id:
+        if after.author.id == self.owner_id and after.content != before.content:
             await self.process_commands(after)
 
     async def on_message(self, message: discord.Message):
