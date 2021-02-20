@@ -8,6 +8,7 @@ import io
 from discord.ext import commands, menus
 from selenium import webdriver
 from selenium.common.exceptions import InvalidArgumentException, WebDriverException
+from selenium.webdriver.chrome.options import Options
 
 from utils import utils
 from utils.classes import CustomContext
@@ -16,7 +17,9 @@ from config import config
 # constants
 
 SUPPORT_SERVER_ID = 798329404325101600
-driver = webdriver.Chrome(config["webdriver_path"])
+options = Options()
+options.add_argument("--headless")
+driver = webdriver.Chrome(config["webdriver_path"], chrome_options=options)
 
 
 class Admin(commands.Cog):
