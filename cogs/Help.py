@@ -7,6 +7,10 @@ from contextlib import suppress
 from utils import utils
 from utils.classes import CustomContext
 
+# constants
+
+command_attrs = {"aliases": ["h"]}
+
 
 class CustomHelpCommand(commands.HelpCommand):
     """
@@ -16,15 +20,9 @@ class CustomHelpCommand(commands.HelpCommand):
 
     async def send_bot_help(self, _):
         data = {0: None}
-        data.update({num: cog_pair for num, cog_pair in enumerate(self.context.bot.cogs.items(), start=1)})
+        cogs = [cog_pair for cog_pair in self.context.bot.cogs.items() if cog_pair[1].get_commands()]
+        data.update({num: cog_pair for num, cog_pair in enumerate(cogs, start=1)})
         pages = utils.PaginatedHelpCommand(source=utils.HelpSource(data), clear_reactions_after=True)
-        # try:
-        #     user = await self.context.author.create_dm()
-        #     await pages.start(self.context, channel=user)
-        # except discord.Forbidden:
-        #     confirm = await Confirm("Your DMs are off. Do you want me to send help in this channel?").prompt(self.context)
-        #     if confirm:
-        #         await pages.start(self.context)
         await pages.start(self.context)
         with suppress(discord.HTTPException):
             await self.context.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
@@ -103,7 +101,7 @@ class CustomHelpCommand(commands.HelpCommand):
 
 
 def setup(bot):
-    bot.help_command = CustomHelpCommand()
+    bot.help_command = CustomHelpCommand(command_attrs=command_attrs)
 
 
 def teardown(bot):

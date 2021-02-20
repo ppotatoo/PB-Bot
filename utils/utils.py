@@ -10,6 +10,7 @@ import asyncio
 import dateparser
 import humanize
 import typing
+import textwrap
 
 
 # helper functions
@@ -91,6 +92,21 @@ class ErrorSource(menus.ListPageSource):
         return embed
 
 
+def command_tree(cmds):
+    lines = []
+
+    for number, command in enumerate(cmds, start=1):
+        prefix = "└── " if number == len(cmds) else "├── "
+        lines.append(f"{prefix}{command.name}")
+
+        if isinstance(command, commands.Group):
+            indent = "\t" if number == len(cmds) else "|\t"
+            subcommands = textwrap.indent(command_tree(command.commands), prefix=indent)
+            lines.append(subcommands)
+
+    return "\n".join(lines)
+
+
 class HelpSource(menus.ListPageSource):
     """
     Page Source for paginated help command.
@@ -99,19 +115,23 @@ class HelpSource(menus.ListPageSource):
         super().__init__(data, per_page=1)
 
     async def format_page(self, menu: menus.MenuPages, page):
-        embed = discord.Embed(title="Help Menu for PB Bot",
+        embed = discord.Embed(title="PB Bot Help",
                               description=f"Page {menu.current_page + 1}/{self.get_max_pages()}",
-                              color=menu.ctx.bot.embed_colour)
+                              colour=menu.ctx.bot.embed_colour)
         embed.set_thumbnail(url=menu.ctx.bot.user.avatar_url)
         embed.set_footer(text=f"Type {menu.ctx.clean_prefix}help (command) for more info on a command.\n"
                               f"You can also type {menu.ctx.clean_prefix}help (category) for more info on a category.")
         if menu.current_page == 0:
-            embed.add_field(name="About", value=menu.ctx.bot.description)
+            embed.add_field(name="About", value=f"```yaml\n{menu.ctx.bot.description}```", inline=False)
+            embed.add_field(name="Useful Links",
+                            value=f"[Invite Link]({menu.ctx.bot.invite_url})\n"
+                                  f"[Support Server Invite]({menu.ctx.bot.support_server_invite})\n"
+                                  f"[Source Code]({menu.ctx.bot.github_url})", inline=False)
+            embed.add_field(name="Vote",
+                            value=f"[top.gg]({menu.ctx.bot.top_gg_url})", inline=False)
         else:
-            # page[0] = cog name
-            # page[1] = cog instance
-            _commands = "\n".join(str(command) for command in page[1].get_commands()) or "No commands in this category."
-            embed.add_field(name=page[0], value=_commands)
+            _commands = page[1].get_commands()
+            embed.add_field(name=page[0], value=f"```yaml\n{command_tree(_commands)}```")
         return embed
 
 
@@ -267,29 +287,53 @@ class PaginatedHelpCommand(menus.MenuPages):
     """
     @menus.button('\U00002139', position=menus.Last(2))
     async def on_info(self, _):
-        embed = discord.Embed(title="How to Use the Paginator", color=self.ctx.bot.embed_colour)
-        embed.add_field(name="Add and Remove Reactions to Navigate the Help Menu:",
-                        value=
-                        "➡️ next page\n"
-                        "⬅️ previous page\n"
-                        "⏮️ first page\n"
-                        "⏭️ last page\n"
-                        "ℹ️ shows this message\n"
-                        "❔    shows how to read the bot's signature\n"
-                        "⏹️ closes the paginator")
+        embed = discord.Embed(title="Paginator Help",
+                              description="➡️ next page\n"
+                                          "⬅️ previous page\n"
+                                          "⏮️ first page\n"
+                                          "⏭️ last page\n"
+                                          "ℹ️ shows this message\n"
+                                          "❔    shows reading help and using the bot\n"
+                                          "⏹️ closes the paginator",
+                              colour=self.ctx.bot.embed_colour)
         embed.set_thumbnail(url=self.ctx.bot.user.avatar_url)
         embed.set_footer(text=f"You were on page {self.current_page + 1} before this message.")
         await self.message.edit(embed=embed)
 
     @menus.button('\U00002754', position=menus.Last(3))
     async def on_question_mark(self, _):
+        description = (
+            "<> - required argument\n"
+            "[] - optional argument\n"
+            "argument... - multiple values can be passed to this argument\n"
+            "{} - required flag\n"
+            "() - optional flag\n"
+            "a|b - either a or b\n\n"
+            "**Do not include the <>, [], () or {} when using a command!**\n\n"
+            'Arguments are delimited by a whitespace (" "). If you would like to provide an argument with whitespace, '
+            'use quotes (""). Some arguments have "consume rest" behaviour, meaning that you don\'t have to use quotes.'
+            "\n\n"
+            "**Examples:**\n"
+            "signature: `command <argument>`\n\n"
+            "without consume rest:\n"
+            '`command a b c` - "argument" will be set to `a`.\n'
+            '`command "a b c"` - "argument" will be set to `a b c`.\n\n'
+            "with consume rest:\n"
+            '`command a b c` - "argument" will be set to `a b c`.\n'
+            '`command "a b c"` - "argument" will be set to `"a b c"`.\n\n'
+            "**Flag Examples:**\n"
+            "signature: `command {--flag|-f}`\n\n"
+            "`command --flag=a`\n"
+            "`command --flag a`\n"
+            '`command --flag="a b c"`\n'
+            "`command -f=a`"
+        )
+
         embed = discord.Embed(
-            title="How to read the Bot's Signature",
-            description=
-            "`<argument>`: required argument\n"
-            "`[argument]`: optional argument (These arguments will usually have an '=' followed by their default value.)\n"
-            "`argument...`: multiple arguments can be provided",
-            color=self.ctx.bot.embed_colour)
+            title="Reading Help and using the Bot",
+            description=description,
+            colour=self.ctx.bot.embed_colour)
+
         embed.set_thumbnail(url=self.ctx.bot.user.avatar_url)
         embed.set_footer(text=f"You were on page {self.current_page + 1} before this message.")
         await self.message.edit(embed=embed)
