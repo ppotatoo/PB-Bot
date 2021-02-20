@@ -13,3 +13,7 @@ experimental/
 venv/
 
 config.py
+
+webdriver/*
+
+!webdriver/.gitkeep
