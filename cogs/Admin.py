@@ -3,15 +3,20 @@ import datetime
 import re
 import subprocess
 import typing
+import io
 
 from discord.ext import commands, menus
+from selenium import webdriver
+from selenium.common.exceptions import InvalidArgumentException, WebDriverException
 
 from utils import utils
 from utils.classes import CustomContext
+from config import config
 
 # constants
 
 SUPPORT_SERVER_ID = 798329404325101600
+driver = webdriver.Chrome(config["webdriver_path"])
 
 
 class Admin(commands.Cog):
@@ -313,6 +318,28 @@ class Admin(commands.Cog):
             embed.description = f"```\n{data or 'Nothing was returned.'}```"
 
         await ctx.send(embed=embed)
+
+    @admin.command(aliases=["ss"])
+    async def screenshot(self, ctx: CustomContext, url: str):
+        """
+        Screenshots a webpage.
+
+        `url` - The url of the webpage.
+        """
+        async with ctx.typing():
+            with utils.StopWatch() as sw:
+                try:
+                    await ctx.bot.loop.run_in_executor(None, driver.get, url)
+                except InvalidArgumentException:
+                    return await ctx.send("Invalid url provided (did you forget the `http://` or `https://`?).")
+                except WebDriverException:
+                    return await ctx.send("Couldn't screenshot that webpage.")
+            b = io.BytesIO(driver.get_screenshot_as_png())
+            file = discord.File(b, filename="screenshot.png")
+            embed = discord.Embed(colour=ctx.bot.embed_colour, timestamp=datetime.datetime.now())
+            embed.set_image(url="attachment://screenshot.png")
+            embed.set_footer(text=f"Finished in {sw.elapsed:.3f} seconds")
+            await ctx.send(embed=embed, file=file)
 
 
 def setup(bot):
