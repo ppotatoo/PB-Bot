@@ -17,3 +17,7 @@ config.py
 webdriver/*
 
 !webdriver/.gitkeep
+
+lavalink/*
+
+!lavalink/.gitkeep
