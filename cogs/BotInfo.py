@@ -138,8 +138,8 @@ class BotInfo(commands.Cog, name="Bot Info"):
         else:
             prefixes = cache["prefixes"]
         if len(prefixes) == 1:
-            return await ctx.send(f"My prefix for this server is `{prefixes[0]}`.")
-        await ctx.send(f"My prefixes for this server are `{utils.humanize_list(prefixes)}`.")
+            return await ctx.send(f"My prefix for this server is `{prefixes[0]}`")
+        await ctx.send(f"My prefixes for this server are `{utils.humanize_list(prefixes)}`")
 
     @commands.guild_only()
     @commands.has_guild_permissions(manage_guild=True)
