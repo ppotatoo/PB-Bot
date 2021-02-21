@@ -233,6 +233,22 @@ class PB_Bot(commands.Bot):
         with open("schemas.sql") as f:
             await self.pool.execute(f.read())
 
+    def get_all_subcommands(self, command):
+        subcommands = []
+        for cmd in command.commands:
+            subcommands.append(str(cmd))
+            subcommands.extend([f"{command} {alias}" for alias in cmd.aliases])
+            if isinstance(cmd, commands.Group):
+                subcommands.extend(self.get_all_subcommands(cmd))
+        return subcommands
+
+    def refresh_command_list(self):
+        for command in self.commands:
+            self.command_list.append(str(command))
+            self.command_list.extend([alias for alias in command.aliases])
+            if isinstance(command, commands.Group):
+                self.command_list.extend(self.get_all_subcommands(command))
+
     async def close(self):
         await self.cache.dump_all()
         await super().close()
@@ -244,21 +260,7 @@ class PB_Bot(commands.Bot):
         self.loop.run_until_complete(self.schemas())
         self.loop.run_until_complete(self.cache.load_all())
 
-        for command in self.commands:
-            self.command_list.append(str(command))
-            self.command_list.extend([alias for alias in command.aliases])
-            if isinstance(command, commands.Group):
-                for subcommand in command.commands:
-                    self.command_list.append(str(subcommand))
-                    self.command_list.extend([f"{command} {subcommand_alias}" for subcommand_alias in subcommand.aliases])
-                    if isinstance(subcommand, commands.Group):
-                        for subcommand2 in subcommand.commands:
-                            self.command_list.append(str(subcommand2))
-                            self.command_list.extend([f"{subcommand} {subcommand2_alias}" for subcommand2_alias in subcommand2.aliases])
-                            if isinstance(subcommand2, commands.Group):
-                                for subcommand3 in subcommand2.commands:
-                                    self.command_list.append(str(subcommand3))
-                                    self.command_list.extend([f"{subcommand2} {subcommand3_alias}" for subcommand3_alias in subcommand3.aliases])
+        self.refresh_command_list()
 
         self.presence_update.start()
         self.dump_cmd_stats.start()
