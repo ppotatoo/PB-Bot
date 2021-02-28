@@ -123,12 +123,13 @@ class HelpSource(menus.ListPageSource):
                               f"You can also type {menu.ctx.clean_prefix}help (category) for more info on a category.")
         if menu.current_page == 0:
             embed.add_field(name="About", value=f"```yaml\n{menu.ctx.bot.description}```", inline=False)
+
             embed.add_field(name="Useful Links",
                             value=f"[Invite Link]({menu.ctx.bot.invite_url})\n"
                                   f"[Support Server Invite]({menu.ctx.bot.support_server_invite})\n"
                                   f"[Source Code]({menu.ctx.bot.github_url})", inline=False)
-            embed.add_field(name="Vote",
-                            value=f"[top.gg]({menu.ctx.bot.top_gg_url})", inline=False)
+
+            embed.add_field(name="Vote", value=f"[top.gg]({menu.ctx.bot.top_gg_url})", inline=False)
         else:
             _commands = page[1].get_commands()
             embed.add_field(name=page[0], value=f"```yaml\n{command_tree(_commands)}```")
