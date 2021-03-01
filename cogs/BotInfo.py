@@ -98,31 +98,48 @@ class BotInfo(commands.Cog, name="Bot Info"):
         """
         Displays information about the bot.
         """
+        v = sys.version_info
+        p = psutil.Process()
+        m = p.memory_full_info()
+        top5commands_today = ctx.bot.cache.command_stats["top_commands_today"].most_common(5)
+        uptime = datetime.datetime.now() - ctx.bot.start_time
+        recent_commits = await ctx.bot.get_recent_commits()
+        latencies = {k: f"{v * 1000:.2f}ms" for k, v in zip(
+            ["Websocket Latency", "API Response Time", "Database Ping (postgresql)", "Database Ping (redis)"],
+            [ctx.bot.latency, await ctx.bot.api_ping(ctx), await ctx.bot.postgresql_ping(), await ctx.bot.redis_ping()]
+        )}
+
         embed = discord.Embed(title="Bot Info", colour=ctx.bot.embed_colour)
         embed.set_thumbnail(url=ctx.bot.user.avatar_url)
-        v = sys.version_info
+        embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar_url)
+
         embed.add_field(
             name="General",
             value=
             f"• Running discord.py version **{discord.__version__}** on python **{v.major}.{v.minor}.{v.micro}**\n"
             f"• This bot is not sharded and can see **{len(ctx.bot.guilds)}** servers and **{len(ctx.bot.users)}** users\n"
-            f"• **{len(ctx.bot.cogs)}** cogs loaded and **{len(list(ctx.bot.walk_commands()))}** commands loaded\n"
-            f"• **Websocket Latency:** `{ctx.bot.latency * 1000:.2f}ms`\n"
-            f"• **API Response Time:** `{await ctx.bot.api_ping(ctx) * 1000:.2f}ms`\n"
-            f"• **Database Ping (postgresql):** `{await ctx.bot.postgresql_ping() * 1000:.2f}ms`\n"
-            f"• **Database Ping (redis):** `{await ctx.bot.redis_ping() * 1000:.2f}ms`\n"
-            f"• **Uptime since last restart:** {humanize.precisedelta(datetime.datetime.now() - ctx.bot.start_time)}")
-        p = psutil.Process()
-        m = p.memory_full_info()
+            f"• **{len(ctx.bot.cogs)}** cogs loaded and **{len(ctx.bot.commands)}** commands loaded\n"
+            f"• **Uptime since last restart:** {humanize.precisedelta(uptime)}", inline=False)
+
+        embed.add_field(
+            name="What's New",
+            value="\n".join(f"[`{commit['sha'][:6]}`]({commit['html_url']}) {commit['commit']['message']}"
+                            for commit in recent_commits), inline=False)
+
+        embed.add_field(name="Top 5 Commands Today", value=top5(top5commands_today) or "No commands have been used today.")
+
         embed.add_field(
             name="System",
             value=
             f"• `{p.cpu_percent()}%` cpu\n"
             f"• `{humanize.naturalsize(m.rss)}` physical memory\n"
             f"• `{humanize.naturalsize(m.vms)}` virtual memory\n"
-            f"• running on PID `{p.pid}` with `{p.num_threads()}` thread(s)",
-            inline=False)
-        embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar_url)
+            f"• running on PID `{p.pid}` with `{p.num_threads()}` thread(s)",)
+
+        embed.add_field(
+            name="Latency Info",
+            value=f"```py\n{utils.padding(latencies, separator=' - ')}```", inline=False)
+
         await ctx.send(embed=embed)
 
     @commands.group(invoke_without_command=True)
