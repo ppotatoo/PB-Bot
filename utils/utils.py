@@ -23,6 +23,10 @@ def owoify(text: str):
     return text.replace("l", "w").replace("L", "W").replace("r", "w").replace("R", "W")
 
 
+def padding(d: dict, *, separator: str):
+    return "\n".join(f"{k.rjust(len(max(d.keys(), key=len)))}{separator}{v}" for k, v in d.items())
+
+
 def humanize_list(li: list):
     """
     "Humanizes" a list.

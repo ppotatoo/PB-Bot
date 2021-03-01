@@ -127,7 +127,7 @@ class Info(commands.Cog):
             components = {c["name"]: c["status"].title().replace("_", " ") for c in summary["components"]}
             embed3 = discord.Embed(
                 title="Discord Status\nComponents",
-                description="```yaml\n" + "\n".join(f"{k.rjust(len(max(components.keys(), key=len)))}: {v}" for k, v in components.items()) + "```",
+                description=f"```yaml\n{utils.padding(components, separator=': ')}```",
                 colour=ctx.bot.embed_colour)
 
             await menus.MenuPages(utils.DiscordStatusSource([embed1, embed2, embed3], per_page=1), clear_reactions_after=True).start(ctx)
