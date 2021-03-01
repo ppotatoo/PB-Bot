@@ -26,6 +26,7 @@ EMBED_COLOUR = 0x01ad98
 BOT_ID = "719907834120110182"
 PERMISSIONS = 104189127
 DESCRIPTION = "An easy to use, multipurpose discord bot written in Python by PB#4162."
+COMMITS_URL = "https://api.github.com/repos/PB4162/PB-Bot/commits"
 
 
 async def get_prefix(bot, message: discord.Message):
@@ -228,6 +229,11 @@ class PB_Bot(commands.Bot):
                 return False
             return True
         return commands.check(predicate)
+
+    async def get_recent_commits(self, limit: int = 4):
+        async with self.session.get(COMMITS_URL) as r:
+            commits = await r.json()
+        return commits[:limit]
 
     async def schemas(self):
         with open("schemas.sql") as f:
