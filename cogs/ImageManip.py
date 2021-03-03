@@ -16,15 +16,28 @@ class ImageManip(commands.Cog):
     @staticmethod
     async def get_image(ctx: CustomContext, image):
         if ctx.message.attachments:
-            return polaroid.Image(await ctx.message.attachments[0].read())
+            img = await ctx.message.attachments[0].read()
+
         elif isinstance(image, discord.PartialEmoji):
-            return polaroid.Image(await image.url.read())
+            img = await image.url.read()
+
+        elif isinstance(image, (discord.Member, discord.User)):
+            img = await image.avatar_url_as(format="png").read()
+
+        elif image is None:
+            img = await ctx.author.avatar_url_as(format="png").read()
         else:
-            image = image or ctx.author
-            return polaroid.Image(await image.avatar_url_as(format="png").read())
+            stripped_url = str(image).strip("<>")
+            if stripped_url.startswith(('http', 'https', 'www')):
+                async with ctx.bot.session.get(stripped_url) as resp:
+                    img = await resp.read()
+            else:
+                img = None
+        return img
 
     @staticmethod
     def _do_image_manip(image: polaroid.Image, method: str, *args, **kwargs):
+        image = polaroid.Image(image)
         method = getattr(image, method)
         method(*args, **kwargs)
         return image
